@@ -1,0 +1,51 @@
+#exit-leadbox-refresh,
+#timed-leadbox-refresh {
+  margin: 5px 0 0 5px;
+}
+
+.timed-loading,
+.exit-loading {
+  display: none;
+}
+
+.mce-i-leadbox_shortcode_icon {
+  background: url('../images/menu-icon.png') no-repeat !important;
+  background-size: 100% !important;
+}
+
+#menu-posts-leadpages_post .wp-menu-image::before,
+#toplevel_page_Leadpages .wp-menu-image::before {
+  content: '\e60b';
+  direction: ltr;
+  display: inline-block;
+  font: normal 1.25rem/1.4 'LeadPages-Icons';
+  padding-top: 3px;
+  speak: none;
+  text-transform: none;
+  letter-spacing: normal;
+  vertical-align: middle;
+  white-space: nowrap;
+  word-wrap: normal;
+}
+
+.column-active {
+  width: 75px;
+}
+
+.lp-icon--alpha {
+  color: #603eff;
+}
+
+.ui-btn,
+a.ui-btn {
+  background: #603eff;
+  border-color: #603eff;
+}
+
+.ui-btn:hover:not(.is-finished),
+.ui-btn:focus:not(.is-finished):not(.is-loading),
+a.ui-btn:hover:not(.is-finished),
+a.ui-btn:focus:not(.is-finished):not(.is-loading) {
+  background: #603eff;
+  border-color: #603eff;
+}

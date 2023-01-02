@@ -1,0 +1,235 @@
+#leadpage-create {
+  background-color: #ffffff;
+  font-family: 'Roboto', Arial;
+  padding-left: 20px;
+  padding-right: 20px;
+
+  .ui-title-nav__content {
+    font-family: 'Roboto';
+    font-size: 25px;
+    font-weight: 500;
+  }
+
+  .lp-icon {
+    font-size: 30px;
+  }
+}
+
+.select2-search {
+  border-bottom: 1px solid #cccccc !important;
+
+  &__field {
+    border-radius: 5px !important;
+    padding: 6px !important;
+  }
+}
+
+.select2-selection__rendered,
+.select2-results__option {
+  font-family: 'Roboto', Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 24px;
+}
+
+.select2-container--default .select2-results > .select2-results__options {
+  max-height: 400px !important;
+}
+
+#leadpages-footer-wrapper,
+#leadpages-header-wrapper {
+  border-bottom: 1px solid #b1bacc;
+  height: 75px;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+.leadpages-edit-body {
+  font-family: 'Roboto', Arial, sans-serif;
+  margin-top: 20px;
+  max-width: 920px;
+  padding-bottom: 50px;
+  width: 100%;
+
+  .header_text {
+    font-weight: 500;
+    padding-left: 4px;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-weight: 700;
+  }
+
+  h3 {
+    font-size: 14px !important;
+  }
+
+  p {
+    font-weight: 400;
+  }
+
+  .leadpages-loading {
+    margin-bottom: 12px;
+    margin-top: 12px;
+
+    .ui-loading {
+      margin-left: auto;
+      margin-right: auto;
+
+      &__dots {
+        background-color: #603eff;
+      }
+    }
+  }
+
+  .section_description {
+    max-width: 470px;
+    width: 100%;
+  }
+
+  .select_a_leadpage {
+    padding: 0 0 9px 16px;
+    position: relative;
+  }
+
+  .sync-leadpages {
+    color: #603eff !important;
+    display: none;
+    height: 24px !important;
+    width: 24px !important;
+
+    &::before {
+      cursor: pointer;
+      font-size: 24px !important;
+      position: relative;
+      top: -10px;
+    }
+  }
+
+  .leadpages_search_container {
+    flex-direction: column;
+    max-width: 480px;
+    padding: 0;
+    width: 100%;
+
+    #leadpages_my_selected_page select {
+      border: 0;
+      height: 100%;
+      max-height: 269px;
+      max-width: 500px;
+      outline: 0;
+      width: 100%;
+    }
+  }
+
+  .leadpage_type_container {
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+  }
+
+  .select_a_leadpage_type {
+    margin-top: 5px;
+    width: 100%;
+  }
+
+  .leadpage_type_box {
+    border: 1px solid #cccccc;
+    border-radius: 5px;
+    height: 203px;
+    margin-left: 20px;
+    padding: 12px;
+    text-align: center;
+    width: 184px;
+
+    &:first-of-type {
+      margin-left: 12px;
+    }
+
+    .header {
+      font-size: 14px;
+      font-weight: 400;
+      text-transform: uppercase;
+    }
+
+    p {
+      font-size: 14px;
+      font-weight: 400;
+      height: 90px;
+      line-height: 15px;
+      padding-bottom: 25px;
+    }
+  }
+
+  .leadpage_slug_container {
+    padding-left: 0 !important;
+  }
+
+  .leadpage-slug-wrapper {
+    margin-bottom: 30px;
+    margin-top: 30px;
+
+    .form-group {
+      display: flex;
+      flex-direction: row;
+
+      label {
+        background-color: #f5f7f9;
+        border: 1px solid #b1bacc;
+        border-right: 0;
+        border-top-left-radius: 5px;
+        border-bottom-left-radius: 5px;
+        display: block;
+        font-size: 14px;
+        font-weight: 200;
+        height: 36px;
+        line-height: 16px;
+        margin-left: 12px;
+        padding: 10px;
+      }
+
+      .leadpages-slug-input {
+        border: 1px solid #b1bacc;
+        border-bottom-right-radius: 5px;
+        border-top-right-radius: 5px;
+        font-size: 14px;
+        height: 36px;
+        line-height: 36px;
+        margin-left: -5px;
+        width: 500px;
+      }
+    }
+  }
+
+  .leadpage-slug-instructions {
+    margin-left: 30px;
+    margin-top: 0;
+    list-style-type: disc;
+
+    li {
+      ul {
+        list-style-type: circle;
+        margin-left: 10px;
+      }
+    }
+  }
+
+  .leadpage-cache-wrapper {
+    margin-bottom: 10px;
+    margin-bottom: 10px;
+  }
+}
+
+@media screen and(max-width: 655px) {
+  .leadpages-edit-body {
+    .select-a-leadpage {
+      &::after {
+        position: absolute;
+        right: 35px;
+        top: 48px;
+      }
+    }
+  }
+}
