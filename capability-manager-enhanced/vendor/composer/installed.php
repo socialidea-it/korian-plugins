@@ -5,7 +5,7 @@
         'type' => 'wordpress-plugin',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
-        'reference' => '18fac168ff8577f0855de6034a2bf8874fc1360c',
+        'reference' => 'dfbb3bc62be244b7a487e358e348df98da6cb6e0',
         'name' => 'publishpress/capability-manager-enhanced',
         'dev' => false,
     ),
@@ -34,7 +34,7 @@
             'type' => 'wordpress-plugin',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
-            'reference' => '18fac168ff8577f0855de6034a2bf8874fc1360c',
+            'reference' => 'dfbb3bc62be244b7a487e358e348df98da6cb6e0',
             'dev_requirement' => false,
         ),
         'publishpress/publishpress-instance-protection' => array(
