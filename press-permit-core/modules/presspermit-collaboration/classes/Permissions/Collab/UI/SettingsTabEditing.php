@@ -53,7 +53,8 @@ class SettingsTabEditing
             'admin_others_attached_files' => esc_html__("List other users' uploads if attached to an editable post", 'press-permit-core'),
             'admin_others_attached_to_readable' => esc_html__("List other users' uploads if attached to a readable post", 'press-permit-core'),
             'admin_others_unattached_files' => esc_html__("Other users' unattached uploads listed by default", 'press-permit-core'),
-            'edit_others_attached_files' => esc_html__("Edit other users' uploads if attached to an editable post", 'press-permit-core'),
+            'edit_others_attached_files' => esc_html__("Allow editing other users' uploads if attached to an editable post", 'press-permit-core'),
+            'attachment_edit_requires_parent_access' => esc_html('Prevent editing uploads if attached to a non-editable post', 'press-permit-core'),
             'own_attachments_always_editable' => esc_html__('Users can always edit their own attachments', 'press-permit-core'),
             'admin_nav_menu_filter_items' => esc_html__('List only user-editable content as available items', 'press-permit-core'),
             'admin_nav_menu_partial_editing' => esc_html__('Allow Renaming of Uneditable Items', 'press-permit-core'),
@@ -62,6 +63,7 @@ class SettingsTabEditing
             'default_privacy' => esc_html__('Default visibility for new posts:', 'press-permit-core'),
             'list_others_uneditable_posts' => esc_html__('List other user\'s uneditable posts', 'press-permit-core'),
             'page_parent_order' => esc_html__('Order Page Parent dropdown by Title', 'press-permit-core'),
+            'auto_assign_available_term' => esc_html__("Auto-assign available term if default term is unavailable", 'press-permit-core'),
             'add_author_pages' => esc_html__('Bulk-Add Author Pages (on Users screen)', 'press-permit-core'),
             'publish_author_pages' => esc_html__('Publish Author Pages at bulk creation', 'press-permit-core'),
             'fork_published_only' => esc_html__('Fork published posts only', 'press-permit-core'),
@@ -80,9 +82,9 @@ class SettingsTabEditing
         $new = [
             'page_structure' => ['lock_top_pages'],
             'user_management' => ['limit_user_edit_by_level', 'add_author_pages', 'publish_author_pages'],
-            'post_editor' => ['default_privacy', 'force_default_privacy', 'page_parent_order'],
+            'post_editor' => ['default_privacy', 'force_default_privacy', 'page_parent_order', 'auto_assign_available_term'],
             'content_management' => ['list_others_uneditable_posts', 'force_taxonomy_cols'],
-            'media_library' => ['admin_others_attached_files', 'admin_others_attached_to_readable', 'admin_others_unattached_files', 'edit_others_attached_files', 'own_attachments_always_editable'],
+            'media_library' => ['admin_others_attached_files', 'admin_others_attached_to_readable', 'admin_others_unattached_files', 'edit_others_attached_files', 'attachment_edit_requires_parent_access', 'own_attachments_always_editable'],
             'nav_menu_management' => ['admin_nav_menu_filter_items', 'admin_nav_menu_partial_editing', 'admin_nav_menu_lock_custom'],
             'post_forking' => ['fork_published_only', 'fork_require_edit_others'],
         ];
@@ -192,6 +194,7 @@ class SettingsTabEditing
                                                     value="1"/><?php if ($do_force_option) : ?>&nbsp;<?php esc_html_e('lock', 'press-permit-core'); ?><?php endif; ?>
                                         </label>
                                         <?php endif; ?>
+
                                     </td>
                                 </tr>
                             <?php endforeach;
@@ -216,6 +219,14 @@ class SettingsTabEditing
                     <br/>
                     <?php
                     $ui->optionCheckbox('page_parent_order', $tab, $section);
+                    ?>
+
+                    <br/>
+                    <?php
+                    $hint = esc_html__("When saving a post, if the default term is not selectable, substitute first available.", 'presspermit-pro')
+                    . ' ' . esc_html__('Some term-limited editing configurations require this.', 'presspermit=pro');
+
+                    $ui->optionCheckbox('auto_assign_available_term', $tab, $section, $hint, '', ['hint_class' => 'pp-subtext-show']);
                     ?>
                 </td>
             </tr>
@@ -384,13 +395,17 @@ class SettingsTabEditing
                         </span></div><br />
                     <?php endif;
 
+                    $ret = $ui->optionCheckbox('admin_others_unattached_files', $tab, $section, true, '');
+
                     $ret = $ui->optionCheckbox('admin_others_attached_to_readable', $tab, $section, true, '');
 
                     $ret = $ui->optionCheckbox('admin_others_attached_files', $tab, $section, true, '');
 
+                    echo '<br />';
+
                     $ret = $ui->optionCheckbox('edit_others_attached_files', $tab, $section, true, '');
 
-                    $ret = $ui->optionCheckbox('admin_others_unattached_files', $tab, $section, true, '');
+                    $ret = $ui->optionCheckbox('attachment_edit_requires_parent_access', $tab, $section, true, '');
 
                     $ret = $ui->optionCheckbox('own_attachments_always_editable', $tab, $section, true, '');
                     ?>

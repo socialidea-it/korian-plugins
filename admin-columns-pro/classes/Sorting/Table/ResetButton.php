@@ -4,89 +4,70 @@ namespace ACP\Sorting\Table;
 
 use AC\ColumnRepository;
 use AC\Table;
+use ACP\Sorting;
 use ACP\Sorting\ApplyFilter;
-use ACP\Sorting\Settings;
 use ACP\Sorting\Type\SortType;
 
-class ResetButton {
+class ResetButton
+{
 
-	/**
-	 * @var ColumnRepository
-	 */
-	private $column_repository;
+    private $column_repository;
 
-	/**
-	 * @var Settings\ListScreen\PreferredSort
-	 */
-	private $setting_sort_default;
+    private $setting_sort_default;
 
-	/**
-	 * @var Settings\ListScreen\PreferredSegmentSort
-	 */
-	private $setting_segment_default;
+    private $default_sort_filter;
 
-	/**
-	 * @var ApplyFilter\DefaultSort
-	 */
-	private $default_sort_filter;
+    public function __construct(
+        ColumnRepository $column_repository,
+        Sorting\Settings\ListScreen\PreferredSort $setting_sort_default,
+        ApplyFilter\DefaultSort $default_sort_filter
+    ) {
+        $this->column_repository = $column_repository;
+        $this->setting_sort_default = $setting_sort_default;
+        $this->default_sort_filter = $default_sort_filter;
+    }
 
-	public function __construct( ColumnRepository $column_repository, Settings\ListScreen\PreferredSort $setting_sort_default, Settings\ListScreen\PreferredSegmentSort $setting_segment_default, ApplyFilter\DefaultSort $default_sort_filter ) {
-		$this->column_repository = $column_repository;
-		$this->setting_sort_default = $setting_sort_default;
-		$this->setting_segment_default = $setting_segment_default;
-		$this->default_sort_filter = $default_sort_filter;
-	}
+    private function is_default(SortType $request_sort_type): bool
+    {
+        $sort_type = $this->default_sort_filter->apply_filters(
+            $this->setting_sort_default->get()
+        );
 
-	/**
-	 * @param SortType $request_sort_type
-	 *
-	 * @return bool
-	 */
-	private function is_default( SortType $request_sort_type ) {
-		$sort_type = $this->setting_sort_default->get();
+        if ( ! $sort_type) {
+            return false;
+        }
 
-		if ( ! $sort_type ) {
-			$sort_type = $this->setting_segment_default->get();
-		}
+        return $sort_type->equals($request_sort_type);
+    }
 
-		$sort_type = $this->default_sort_filter->apply_filters( $sort_type );
+    public function get(SortType $sort_type): ?Table\Button
+    {
+        if ($this->is_default($sort_type)) {
+            return null;
+        }
 
-		if ( ! $sort_type ) {
-			return false;
-		}
+        if ( ! $sort_type->get_order_by()) {
+            return null;
+        }
 
-		return $sort_type->equals( $request_sort_type );
-	}
+        $button = new Table\Button('edit-columns');
+        $button->set_url('#')
+               ->set_text(__('Reset Sorting', 'codepress-admin-columns'))
+               ->set_attribute('class', 'ac-table-button reset-sorting');
 
-	/**
-	 * @param SortType $sort_type
-	 *
-	 * @return Table\Button|null
-	 */
-	public function get( SortType $sort_type ) {
-		if ( $this->is_default( $sort_type ) ) {
-			return null;
-		}
+        $column = $this->column_repository->find($sort_type->get_order_by());
 
-		$column = $this->column_repository->find( $sort_type->get_order_by() );
+        if ($column) {
+            $label = strip_tags($column->get_custom_label());
 
-		if ( ! $column ) {
-			return null;
-		}
+            if (empty($label)) {
+                $label = $column->get_label();
+            }
 
-		$label = strip_tags( $column->get_custom_label() );
+            $button->set_label(trim(__('Sorted by ', 'codepress-admin-columns')) . ' ' . $label);
+        }
 
-		if ( empty( $label ) ) {
-			$label = $column->get_label();
-		}
-
-		$button = new Table\Button( 'edit-columns' );
-		$button->set_label( trim( __( 'Sorted by ', 'codepress-admin-columns' ) ) . ' ' . $label )
-		       ->set_url( '#' )
-		       ->set_text( __( 'Reset Sorting', 'codepress-admin-columns' ) )
-		       ->set_attribute( 'class', 'ac-table-button reset-sorting' );
-
-		return $button;
-	}
+        return $button;
+    }
 
 }

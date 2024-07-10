@@ -1,39 +1,33 @@
 <?php
 
+declare(strict_types=1);
+
 namespace ACP\Sorting\Model\Post;
 
-use ACP\Sorting\AbstractModel;
+use ACP\Query\Bindings;
+use ACP\Sorting\Model\QueryBindings;
+use ACP\Sorting\Model\SqlOrderByFactory;
+use ACP\Sorting\Type\Order;
 
-class Attachment extends AbstractModel {
+class Attachment implements QueryBindings
+{
 
-	public function get_sorting_vars() {
-		add_filter( 'posts_clauses', [ $this, 'sorting_clauses_callback' ] );
+    public function create_query_bindings(Order $order): Bindings
+    {
+        global $wpdb;
 
-		return [
-			'suppress_filters' => false,
-		];
-	}
+        $bindings = new Bindings();
+        $alias = $bindings->get_unique_alias('attachment');
 
-	public function sorting_clauses_callback( $clauses ) {
-		global $wpdb;
+        $bindings->join(
+            "LEFT JOIN $wpdb->posts AS $alias ON $alias.post_parent = $wpdb->posts.ID AND $alias.post_type = 'attachment'"
+        );
+        $bindings->group_by("$wpdb->posts.ID");
+        $bindings->order_by(
+            SqlOrderByFactory::create_with_count("$alias.ID", (string)$order)
+        );
 
-		$order = esc_sql( $this->get_order() );
-
-		$join_type = $this->show_empty
-			? 'LEFT'
-			: 'INNER';
-
-		$clauses['fields'] .= ", count( acsort_attachments.ID ) AS acsort_attachment_count";
-		$clauses['join'] .= "
-			$join_type JOIN $wpdb->posts AS acsort_attachments ON acsort_attachments.post_parent = {$wpdb->posts}.ID
-			AND acsort_attachments.post_type = 'attachment'
-		";
-		$clauses['groupby'] = "$wpdb->posts.ID";
-		$clauses['orderby'] = "acsort_attachment_count $order, $wpdb->posts.ID $order";
-
-		remove_filter( 'posts_clauses', [ $this, __FUNCTION__ ] );
-
-		return $clauses;
-	}
+        return $bindings;
+    }
 
 }

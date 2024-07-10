@@ -13,7 +13,8 @@ class V5201 extends Update {
 		parent::__construct( new Version( '5.2.1' ) );
 	}
 
-	public function apply_update() {
+	public function apply_update(): void
+    {
 		global $wpdb;
 
 		$sql = "
@@ -29,10 +30,10 @@ class V5201 extends Update {
 		}
 
 		foreach ( $preferences as $preference ) {
-			$segments = unserialize( $preference->meta_value );
+			$segments = unserialize( $preference->meta_value, [ 'allowed_classes' => false ] );
 
 			foreach ( $segments['segments'] as $k => $segment ) {
-				$data = unserialize( $segment['data'] );
+				$data = unserialize( $segment['data'], [ 'allowed_classes' => false ] );
 
 				$data['url_parameters'] = [];
 

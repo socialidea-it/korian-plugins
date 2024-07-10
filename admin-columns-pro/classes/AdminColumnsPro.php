@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace ACP;
 
 use AC;
@@ -9,296 +11,315 @@ use AC\Admin\PageNetworkRequestHandler;
 use AC\Admin\PageNetworkRequestHandlers;
 use AC\Admin\PageRequestHandler;
 use AC\Admin\PageRequestHandlers;
-use AC\ColumnSize;
-use AC\DefaultColumnsRepository;
-use AC\IntegrationRepository;
-use AC\ListScreenTypes;
+use AC\Asset\Location\Absolute;
+use AC\Entity\Plugin;
+use AC\ListScreenFactory\Aggregate;
+use AC\Plugin\InstallCollection;
 use AC\Plugin\Version;
-use AC\PluginInformation;
-use AC\Registrable;
 use AC\Request;
-use AC\Storage\ListScreenOrder;
+use AC\RequestAjaxHandlers;
+use AC\RequestAjaxParser;
+use AC\Services;
+use AC\Storage\KeyValueFactory;
 use AC\Storage\NetworkOptionFactory;
 use AC\Storage\OptionFactory;
 use AC\Table\ScreenTools;
-use AC\Type\Url;
-use ACP\Access\ActivationKeyStorage;
-use ACP\Access\ActivationStorage;
-use ACP\Access\ActivationUpdater;
+use AC\Vendor\DI;
+use AC\Vendor\DI\ContainerBuilder;
+use AC\Vendor\Psr\Container\ContainerInterface;
+use ACA\ACF\AdvancedCustomFields;
+use ACA\BbPress\BbPress;
+use ACA\BeaverBuilder\BeaverBuilder;
+use ACA\BP\BuddyPress;
+use ACA\EC\EventsCalendar;
+use ACA\GravityForms\GravityForms;
+use ACA\JetEngine\JetEngine;
+use ACA\MetaBox\MetaBox;
+use ACA\MLA\MediaLibraryAssistant;
+use ACA\Pods\Pods;
+use ACA\Polylang\Polylang;
+use ACA\Types\Types;
+use ACA\WC\WooCommerce;
+use ACA\YoastSeo\YoastSeo;
 use ACP\Access\PermissionChecker;
-use ACP\Access\PermissionsStorage;
 use ACP\Access\Rule\LocalServer;
-use ACP\Admin;
-use ACP\Admin\MenuFactory;
+use ACP\Admin\NetworkPageFactory;
 use ACP\Admin\PageFactory;
-use ACP\Bookmark;
-use ACP\Bookmark\SegmentRepository;
-use ACP\Export;
-use ACP\Migrate;
 use ACP\Plugin\SetupFactory;
-use ACP\Search;
-use ACP\Service;
-use ACP\Settings;
-use ACP\Storage\ListScreen\DecoderFactory;
-use ACP\Storage\ListScreen\Encoder;
-use ACP\Storage\ListScreen\LegacyCollectionDecoder;
-use ACP\Storage\ListScreen\LegacyCollectionDecoderAggregate;
+use ACP\Service\ListScreens;
+use ACP\Service\Storage\TemplateFiles;
+use ACP\Storage\Decoder\Version510Factory;
+use ACP\Storage\Decoder\Version630Factory;
+use ACP\Storage\EncoderFactory;
+use ACP\Storage\Serializer\PhpSerializer;
+use ACP\Table\ListKeysFactory;
+use ACP\Table\PrimaryColumn;
 use ACP\Table\Scripts;
-use ACP\ThirdParty;
-use ACP\Transient\UpdateCheckTransient;
 use ACP\Updates\PeriodicUpdateCheck;
-use ACP\Updates\PluginDataUpdater;
 
-final class AdminColumnsPro extends AC\Plugin {
+use function AC\Vendor\DI\autowire;
 
-	/**
-	 * @var self
-	 */
-	private static $instance;
+final class AdminColumnsPro
+{
 
-	/**
-	 * @var API
-	 */
-	private $api;
+    public function __construct()
+    {
+        $container = $this->create_container();
 
-	protected function __construct() {
-		parent::__construct( ACP_FILE, new Version( ACP_VERSION ) );
+        Container::set_container($container);
 
-		$basename = $this->get_basename();
-		$plugin_information = new PluginInformation( $basename );
-		$is_network_active = $plugin_information->is_network_active();
-		$version = $this->get_version();
+        $page_handler = new PageRequestHandler();
+        $page_handler
+            ->add('columns', $container->get(PageFactory\Columns::class))
+            ->add('settings', $container->get(PageFactory\Settings::class))
+            ->add('addons', $container->get(PageFactory\Addons::class))
+            ->add('import-export', $container->get(PageFactory\Tools::class))
+            ->add('license', $container->get(PageFactory\License::class))
+            ->add('help', $container->get(PageFactory\Help::class));
 
-		$meta = [
-			'php_version' => PHP_VERSION,
-			'acp_version' => $version->get_value(),
-			'is_network'  => $is_network_active,
-		];
+        PageRequestHandlers::add_handler($page_handler);
 
-		if ( isset( $_SERVER['REMOTE_ADDR'] ) && $_SERVER['REMOTE_ADDR'] ) {
-			$meta['ip'] = $_SERVER['REMOTE_ADDR'];
-		}
+        $page_network_handler = new PageNetworkRequestHandler();
+        $page_network_handler
+            ->add('columns', $container->get(NetworkPageFactory\Columns::class))
+            ->add('import-export', $container->get(NetworkPageFactory\Tools::class))
+            ->add('addons', $container->get(NetworkPageFactory\Addons::class))
+            ->add('license', $container->get(NetworkPageFactory\License::class));
 
-		$this->api = new API();
-		$this->api
-			->set_url( Url\Site::URL )
-			->set_proxy( 'https://api.admincolumns.com' )
-			->set_request_meta( $meta );
+        PageNetworkRequestHandlers::add_handler($page_network_handler);
 
-		$option_factory = $is_network_active
-			? new NetworkOptionFactory()
-			: new OptionFactory();
+        $this->create_services($container)
+             ->register();
+    }
 
-		$site_url = new Type\SiteUrl( $is_network_active ? network_site_url() : site_url() );
+    private function create_services(ContainerInterface $container): Services
+    {
+        $request_ajax_handlers = new RequestAjaxHandlers();
+        $request_ajax_handlers
+            ->add('acp-list-screen-create', $container->get(RequestHandler\Ajax\ListScreenCreate::class))
+            ->add('acp-daily-subscription-update', $container->get(RequestHandler\Ajax\SubscriptionUpdate::class))
+            ->add('acp-update-plugins-check', $container->get(RequestHandler\Ajax\UpdatePlugins::class))
+            ->add('acp-layout-get-users', $container->get(RequestHandler\Ajax\ListScreenUsers::class))
+            ->add('acp-update-layout-order', $container->get(RequestHandler\Ajax\ListScreenOrder::class))
+            ->add('acp-ajax-send-feedback', $container->get(RequestHandler\Ajax\Feedback::class))
+            ->add('acp-permalinks', $container->get(RequestHandler\Ajax\Permalinks::class))
+            ->add('acp-user-column-reset', $container->get(RequestHandler\Ajax\ColumnReset::class))
+            ->add('acp-user-column-order', $container->get(RequestHandler\Ajax\ColumnOrderUser::class))
+            ->add('acp-user-column-width', $container->get(RequestHandler\Ajax\ColumnWidthUser::class))
+            ->add('acp-user-column-width-reset', $container->get(RequestHandler\Ajax\ColumnWidthUserReset::class))
+            ->add('acp-user-list-order', $container->get(RequestHandler\Ajax\ListScreenOrderUser::class))
+            ->add('acp-table-save-preference', $container->get(RequestHandler\Ajax\ListScreenTable::class))
+            ->add('acp-filtering-comparison-request', $container->get(Filtering\RequestHandler\Comparison::class))
+            ->add('acp-integration-toggle', $container->get(RequestHandler\Ajax\IntegrationToggle::class))
+            ->add(
+                'acp-user-conditional-formatting',
+                $container->get(ConditionalFormat\RequestHandler\SaveRules::class)
+            );
 
-		$license_key_storage = new LicenseKeyRepository( $option_factory );
-		$activation_key_storage = new ActivationKeyStorage( $option_factory );
-		$activation_token_factory = new ActivationTokenFactory( $activation_key_storage, $license_key_storage );
-		$activation_storage = new ActivationStorage( $option_factory );
+        $request_handler_factory = new RequestHandlerFactory(new Request());
+        $request_handler_factory
+            ->add('acp-export', $container->get(RequestHandler\Export::class))
+            ->add('acp-import-upload', $container->get(RequestHandler\ImportUpload::class))
+            ->add('acp-import-file', $container->get(RequestHandler\Import::class))
+            ->add('acp-license-activate', $container->get(RequestHandler\LicenseActivate::class))
+            ->add('acp-license-deactivate', $container->get(RequestHandler\LicenseDeactivate::class))
+            ->add('acp-license-update', $container->get(RequestHandler\LicenseUpdate::class))
+            ->add('acp-force-plugin-updates', $container->get(RequestHandler\ForcePluginUpdates::class))
+            ->add('create-layout', $container->get(RequestHandler\ListScreenCreate::class))
+            ->add('delete-layout', $container->get(RequestHandler\ListScreenDelete::class))
+            ->add('acp-preview-mode', $container->get(RequestHandler\PreviewMode::class));
 
-		$storage = AC()->get_storage();
-		$list_screen_types = ListScreenTypes::instance();
-		$list_screen_encoder = new Encoder( $version );
-		$list_screen_decoder_factory = new DecoderFactory( $list_screen_types );
+        $setup_factory = $container->get(SetupFactory::class);
+        $is_network_active = $container->get(Plugin::class)->is_network_active();
 
-		$legacy_collection_decoder = new LegacyCollectionDecoderAggregate( [
-			new LegacyCollectionDecoder\Version332( $list_screen_types ),
-			new LegacyCollectionDecoder\Version384( $list_screen_types ),
-			new LegacyCollectionDecoder\Version400( $list_screen_types ),
-		] );
+        $services_fqn = [
+            Updates\UpdatePlugin::class,
+            Updates\ViewPluginDetails::class,
+            Admin\Settings::class,
+            Admin\Notice\NotSavedListScreen::class,
+            QuickAdd\Addon::class,
+            Sorting\Addon::class,
+            Editing\Addon::class,
+            Export\Addon::class,
+            Search\Addon::class,
+            ConditionalFormat\Addon::class,
+            Filtering\Addon::class,
+            Table\HorizontalScrolling::class,
+            Table\StickyTableRow::class,
+            Table\HideElements::class,
+            ListScreens::class,
+            Scripts::class,
+            Localize::class,
+            NativeTaxonomies::class,
+            IconPicker::class,
+            TermQueryInformation::class,
+            PeriodicUpdateCheck::class,
+            PluginActionLinks::class,
+            Check\Activation::class,
+            Check\Expired::class,
+            Check\Renewal::class,
+            Check\LockedSettings::class,
+            Admin\Scripts::class,
+            Service\Addon::class,
+            Service\ForcePluginUpdate::class,
+            Service\View::class,
+            Service\Banner::class,
+            Service\PluginNotice::class,
+            ScreenTools::class,
+            PrimaryColumn::class,
+            Service\Storage::class,
+            Service\Storage\Template::class,
+            Service\Storage\TemplateFiles::class,
+            Service\Permissions::class,
+            Service\TableCellWrapping::class,
+        ];
+        if ($is_network_active) {
+            $services_fqn[] = AdminNetwork::class;
+        }
 
-		$location = $this->get_location();
-		$location_core = AC()->get_location();
+        if ( ! $is_network_active && $container->get(Plugin::class)->get_version()->is_beta()) {
+            $services_fqn[] = Check\Beta::class;
+        }
 
-		$integration_repository = new IntegrationRepository();
-		$plugin_repository = new PluginRepository( $basename, $integration_repository );
-		$permission_storage = new PermissionsStorage( $option_factory );
-		$default_column_repository = new DefaultColumnsRepository();
+        $services = new Services();
 
-		$menu_factory = new MenuFactory( admin_url( 'options-general.php' ), $location_core, $activation_token_factory, $integration_repository );
+        foreach ($services_fqn as $service_fqn) {
+            $services->add($container->get($service_fqn));
+        }
 
-		$page_handler = new PageRequestHandler();
-		$page_handler->add( 'columns', new PageFactory\Columns( $location_core, $storage, $default_column_repository, $menu_factory ) )
-		             ->add( 'settings', new PageFactory\Settings( $location_core, $menu_factory ) )
-		             ->add( 'addons', new PageFactory\Addons( $location_core, $integration_repository, $permission_storage, $menu_factory ) )
-		             ->add( 'import-export', new PageFactory\Tools( $location, $storage, $menu_factory ) )
-		             ->add( 'license', new PageFactory\License( $location, $menu_factory, $site_url, $activation_token_factory, $activation_storage, $permission_storage, $license_key_storage, $plugin_repository, $is_network_active ) )
-		             ->add( 'help', new AC\Admin\PageFactory\Help( $location, $menu_factory ) );
+        $services->add(new RequestParser($request_handler_factory))
+                 ->add(new RequestAjaxParser($request_ajax_handlers))
+                 ->add(new AC\Service\Setup($setup_factory->create(AC\Plugin\SetupFactory::SITE)));
 
-		PageRequestHandlers::add_handler( $page_handler );
+        if ($is_network_active) {
+            $services->add(new AC\Service\Setup($setup_factory->create(AC\Plugin\SetupFactory::NETWORK)));
+        }
 
-		$network_menu_factory = new Admin\MenuNetworkFactory( network_admin_url( 'settings.php' ), $location_core, $activation_token_factory, $integration_repository );
+        return $services;
+    }
 
-		$page_network_handler = new PageNetworkRequestHandler();
-		$page_network_handler->add( 'columns', new Admin\NetworkPageFactory\Columns( $location_core, $default_column_repository, $storage, $network_menu_factory ) )
-		                     ->add( 'import-export', new Admin\NetworkPageFactory\Tools( $location, $storage, $network_menu_factory ) )
-		                     ->add( 'addons', new PageFactory\Addons( $location_core, $integration_repository, $permission_storage, $network_menu_factory ) )
-		                     ->add( 'license', new PageFactory\License( $location, $network_menu_factory, $site_url, $activation_token_factory, $activation_storage, $permission_storage, $license_key_storage, $plugin_repository, $is_network_active ) );
+    private function create_container(): DI\Container
+    {
+        $location_core = AC\Container::get_location();
 
-		PageNetworkRequestHandlers::add_handler( $page_network_handler );
+        $addons = [
+            'acf'                     => AdvancedCustomFields::class,
+            'beaver-builder'          => BeaverBuilder::class,
+            'bbpress'                 => BbPress::class,
+            'buddypress'              => BuddyPress::class,
+            'events-calendar'         => EventsCalendar::class,
+            'gravityforms'            => GravityForms::class,
+            'jetengine'               => JetEngine::class,
+            'metabox'                 => MetaBox::class,
+            'media-library-assistant' => MediaLibraryAssistant::class,
+            'pods'                    => Pods::class,
+            'polylang'                => Polylang::class,
+            'types'                   => Types::class,
+            'woocommerce'             => WooCommerce::class,
+            'yoast-seo'               => YoastSeo::class,
+        ];
 
-		$request = new Request();
-		$segment_repository = new SegmentRepository();
+        $definitions = [
+            'config.templates'                       => static function (Plugin $plugin): array {
+                return require $plugin->get_dir() . 'config/templates.php';
+            },
+            AC\ListScreenRepository\Storage::class   => static function () {
+                return AC\Container::get_storage();
+            },
+            AddonFactory::class                      => autowire()
+                ->constructorParameter(0, $addons),
+            PhpSerializer\File::class                => static function (PhpSerializer $serializer) {
+                return new PhpSerializer\File($serializer);
+            },
+            Storage\AbstractDecoderFactory::class    => autowire()
+                ->constructorParameter(0, [
+                    autowire(Version630Factory::class),
+                    autowire(Version510Factory::class),
+                ]),
+            KeyValueFactory::class                   => static function (Plugin $plugin) {
+                return $plugin->is_network_active()
+                    ? new NetworkOptionFactory()
+                    : new OptionFactory();
+            },
+            Type\SiteUrl::class                      => static function (Plugin $plugin) {
+                return new Type\SiteUrl(
+                    $plugin->is_network_active()
+                        ? network_site_url()
+                        : site_url()
+                );
+            },
+            SetupFactory::class                      => static function (
+                AC\ListScreenRepository\Storage $storage,
+                Plugin $plugin
+            ) {
+                return new SetupFactory(
+                    'acp_version',
+                    $plugin,
+                    $storage,
+                    new InstallCollection([
+                        new Search\Install(new Search\Storage\Table\Segment()),
+                    ])
+                );
+            },
+            Plugin::class                            => static function () {
+                return Plugin::create(ACP_FILE, new Version(ACP_VERSION));
+            },
+            Storage\EncoderFactory::class            => static function (Plugin $plugin) {
+                return new EncoderFactory($plugin->get_version());
+            },
+            Absolute::class                          => static function (Plugin $plugin) {
+                return new Absolute($plugin->get_url(), $plugin->get_dir());
+            },
+            AC\ListScreenFactory::class              => autowire(Aggregate::class),
+            AC\Table\ListKeysFactoryInterface::class => autowire(ListKeysFactory::class),
+            AC\Admin\MenuFactoryInterface::class     => autowire(Admin\MenuFactory::class),
+            PermissionChecker::class                 => autowire()->methodParameter('add_rule', 0, new LocalServer()),
+            PageFactory\Columns::class               => autowire()->constructorParameter(0, $location_core),
+            PageFactory\Settings::class              => autowire()->constructorParameter(0, $location_core),
+            PageFactory\Addons::class                => autowire()->constructorParameter(0, $location_core),
+            NetworkPageFactory\Columns::class        => autowire()->constructorParameter(0, $location_core),
+            NetworkPageFactory\Addons::class         => autowire()->constructorParameter(0, $location_core),
+            AdminScripts::class                      => autowire()->constructorParameter(0, $location_core),
+            AdminNetwork::class                      => autowire()->constructorParameter(1, $location_core),
+            Service\Addon::class                     => autowire()->constructorParameter(0, array_keys($addons)),
+            Admin\MenuNetworkFactory::class          => autowire()
+                ->constructorParameter(0, network_admin_url('settings.php'))
+                ->constructorParameter(1, $location_core),
+            Admin\MenuFactory::class                 => autowire()
+                ->constructorParameter(0, admin_url('options-general.php'))
+                ->constructorParameter(1, $location_core),
+            TemplateFiles::class                     => static function (): TemplateFiles {
+                return TemplateFiles::from_directory(__DIR__ . '/../config/storage/template');
+            },
+        ];
 
-		$permission_checker = new PermissionChecker( $permission_storage );
-		$permission_checker->add_rule( new LocalServer() );
+        return (new ContainerBuilder())
+            ->addDefinitions($definitions)
+            ->build();
+    }
 
-		$plugin_data_storage = new Storage\PluginsData();
-		$plugin_data_updater = new PluginDataUpdater( $this->api, $site_url, $plugin_data_storage );
-		$activation_updater = new ActivationUpdater( $activation_key_storage, $activation_storage, $license_key_storage, $this->api, $site_url, $plugin_repository, $permission_checker );
+    public function get_version(): Version
+    {
+        return Container::get_plugin()->get_version();
+    }
 
-		$column_size_user_storage = new ColumnSize\UserStorage( new ColumnSize\UserPreference( get_current_user_id() ) );
-		$column_size_list_storage = new ColumnSize\ListStorage( $storage );
+    /**
+     * For backwards compatibility with the `Dependencies` class
+     * @deprecated 6.0
+     */
+    public function is_version_gte(string $version): bool
+    {
+        _deprecated_function(__METHOD__, '6.0');
 
-		$request_ajax_handlers = new RequestAjaxHandlers();
-		$request_ajax_handlers->add( 'acp-ajax-install-addon', new RequestHandler\Ajax\AddonInstaller( $this->api, $site_url, $activation_storage, $activation_token_factory, $integration_repository, $is_network_active ) )
-		                      ->add( 'acp-ajax-activate', new RequestHandler\Ajax\LicenseActivate( $activation_key_storage, $this->api, $site_url, $plugin_data_updater, $activation_updater, $permission_checker ) )
-		                      ->add( 'acp-daily-subscription-update', new RequestHandler\Ajax\SubscriptionUpdate( $activation_storage, $activation_key_storage, $license_key_storage, $permission_checker, $this->api, $site_url, $activation_token_factory, $plugin_repository ) )
-		                      ->add( 'acp-update-plugins-check', new RequestHandler\Ajax\UpdatePlugins( $activation_token_factory, $plugin_data_updater, new UpdateCheckTransient() ) )
-		                      ->add( 'acp-layout-get-users', new RequestHandler\Ajax\ListScreenUsers() )
-		                      ->add( 'acp-update-layout-order', new RequestHandler\Ajax\ListScreenOrder( new ListScreenOrder() ) )
-		                      ->add( 'acp-send-feedback', new RequestHandler\Ajax\Feedback( $version ) )
-		                      ->add( 'acp-permalinks', new RequestHandler\Ajax\Permalinks() )
-		                      ->add( 'acp-user-column-width', new RequestHandler\Ajax\ColumnWidthUser( $column_size_user_storage ) )
-		                      ->add( 'acp-user-column-width-reset', new RequestHandler\Ajax\ColumnWidthUserReset( $column_size_user_storage ) )
-		                      ->add( 'acp-user-column-width-reset-all', new RequestHandler\Ajax\ColumnWidthUserResetAll( $column_size_user_storage ) )
-		                      ->add( 'acp-list-column-width', new RequestHandler\Ajax\ColumnWidthList( $column_size_list_storage, $column_size_user_storage ) );
+        return (new Version(ACP_VERSION))->is_gte(new Version($version));
+    }
 
-		$request_handler_factory = new RequestHandlerFactory( new Request() );
-		$request_handler_factory->add( 'acp-license-activate', new RequestHandler\LicenseActivate( $activation_key_storage, $this->api, $site_url, $plugin_data_updater, $activation_updater, $permission_checker ) )
-		                        ->add( 'acp-license-deactivate', new RequestHandler\LicenseDeactivate( $license_key_storage, $activation_key_storage, $activation_storage, $this->api, $site_url, $activation_token_factory, $plugin_data_updater, $permission_checker ) )
-		                        ->add( 'acp-license-update', new RequestHandler\LicenseUpdate( $activation_token_factory, $activation_updater ) )
-		                        ->add( 'acp-force-plugin-updates', new RequestHandler\ForcePluginUpdates( $plugin_data_updater, $activation_token_factory ) )
-		                        ->add( 'create-layout', new RequestHandler\ListScreenCreate( $storage, new ListScreenOrder() ) )
-		                        ->add( 'delete-layout', new RequestHandler\ListScreenDelete( $storage ) );
-
-		$services = [
-			new Admin\Settings( $storage, $location, $segment_repository ),
-			new QuickAdd\Addon( $storage, $location, $request ),
-			new Sorting\Addon( $storage, $location, $segment_repository ),
-			new Editing\Addon( $storage, $location, $request ),
-			new Export\Addon( $location, $storage ),
-			new Bookmark\Addon( $storage, $request, $segment_repository ),
-			new Search\Addon( $storage, $location, $segment_repository ),
-			new Filtering\Addon( $storage, $location, $request ),
-			new ThirdParty\ACF\Addon(),
-			new ThirdParty\BeaverBuilder\Addon(),
-			new ThirdParty\bbPress\Addon(),
-			new ThirdParty\Polylang\Addon(),
-			new ThirdParty\WooCommerce\Addon(),
-			new ThirdParty\YoastSeo\Addon(),
-			new Table\Switcher( $storage ),
-			new Table\HorizontalScrolling( $storage, $location ),
-			new Table\StickyTableRow( $storage ),
-			new Table\HideElements(),
-			new ListScreens(),
-			new Scripts( $location, $column_size_user_storage, $column_size_list_storage ),
-			new Localize( $this->get_dir() ),
-			new NativeTaxonomies(),
-			new IconPicker(),
-			new TermQueryInformation(),
-			new Migrate\Export\Request( $storage, new Migrate\Export\ResponseFactory( $list_screen_encoder ) ),
-			new Migrate\Import\Request( $storage, $list_screen_decoder_factory, $legacy_collection_decoder ),
-			new RequestParser( $request_handler_factory ),
-			new RequestAjaxParser( $request_ajax_handlers ),
-			new Service\ForcePluginUpdate( $activation_token_factory, $plugin_data_updater ),
-			new Service\PluginUpdater( $this->api, $plugin_repository, $plugin_data_storage ),
-			new PeriodicUpdateCheck( $location, new UpdateCheckTransient() ),
-			new PluginActionLinks( $basename, $permission_storage ),
-			new Check\Activation( $basename, $activation_token_factory, $activation_storage, $permission_storage, $is_network_active ),
-			new Check\Expired( $basename, $activation_token_factory, $activation_storage, $site_url ),
-			new Check\Renewal( $basename, $activation_token_factory, $activation_storage, $site_url ),
-			new Check\LockedSettings( $basename, $permission_storage, $is_network_active ),
-			new Check\RecommendedAddons( $integration_repository ),
-			new Admin\Scripts( $location, $permission_storage, $is_network_active ),
-			new Service\Templates( $this->get_dir() ),
-			new Service\Banner(),
-			new ScreenTools(),
-		];
-
-		if ( $is_network_active ) {
-			$services[] = new AdminNetwork( new PageNetworkRequestHandlers(), $location_core, new AdminScripts( $location_core ) );
-		}
-
-		$setup_factory = new SetupFactory( 'acp_version', $this->get_version() );
-
-		$services[] = new AC\Service\Setup( $setup_factory->create( AC\Plugin\SetupFactory::SITE ) );
-
-		if ( $is_network_active ) {
-			$services[] = new AC\Service\Setup( $setup_factory->create( AC\Plugin\SetupFactory::NETWORK ) );
-		}
-
-		$services[] = new Service\Storage(
-			$storage,
-			new ListScreenRepository\FileFactory( $list_screen_encoder, $list_screen_decoder_factory ),
-			new AC\EncodedListScreenDataFactory(),
-			$legacy_collection_decoder
-		);
-
-		$services[] = new Service\Permissions( $permission_storage, $permission_checker );
-
-		if ( $version->is_beta() ) {
-			$services[] = new Check\Beta( new Admin\Feedback( $location ) );
-		}
-
-		array_map( static function ( Registrable $service ) {
-			$service->register();
-		}, $services );
-	}
-
-	/**
-	 * @return AdminColumnsPro
-	 */
-	public static function instance() {
-		if ( null === self::$instance ) {
-			self::$instance = new self();
-		}
-
-		return self::$instance;
-	}
-
-	/**
-	 * @return API
-	 */
-	public function get_api() {
-		return $this->api;
-	}
-
-	/**
-	 * For backwards compatibility with the `Depedencies` class
-	 *
-	 * @param string
-	 *
-	 * @return bool
-	 */
-	public function is_version_gte( $version ) {
-		return $this->get_version()->is_gte( new Version( (string) $version ) );
-	}
-
-	/**
-	 * @return bool
-	 * @deprecated 5.7
-	 */
-	public function is_network_active() {
-		_deprecated_function( __METHOD__, '5.7' );
-
-		return ( new PluginInformation( $this->get_basename() ) )->is_network_active();
-	}
-
-	/**
-	 * @since      4.0
-	 * @deprecated 5.5.2
-	 */
-	public function network_admin() {
-		_deprecated_function( __METHOD__, '5.5.2' );
-	}
-
-	/**
-	 * @since      4.0
-	 * @deprecated 5.0.0
-	 */
-	public function layouts() {
-		_deprecated_function( __METHOD__, '5.0.0' );
-	}
+    /**
+     * @deprecated 5.7
+     */
+    public function is_network_active(): void
+    {
+        _deprecated_function(__METHOD__, '5.7');
+    }
 
 }

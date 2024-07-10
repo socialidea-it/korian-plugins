@@ -67,7 +67,7 @@ class PermissionsAdmin
     {
         global $wp_roles;
 
-        $defaults = ['plural' => false, 'slug_fallback' => true, 'include_warnings' => false, 'echo' => false];
+        $defaults = ['plural' => false, 'show_disabled' => true, 'slug_fallback' => true, 'include_warnings' => false, 'echo' => false];
         $args = array_merge($defaults, $args);
         foreach (array_keys($defaults) as $var) {
             $$var = $args[$var];
@@ -83,7 +83,9 @@ class PermissionsAdmin
                 $warning = '';
 
                 if (isset($pp->role_defs->pattern_roles[$arr_name[0]])) {
-                    $role_caption = $pp->role_defs->pattern_roles[$arr_name[0]]->labels->$caption_prop;
+                    $role_caption = (isset($pp->role_defs->pattern_roles[$arr_name[0]]->labels->$caption_prop)) 
+                    ? $pp->role_defs->pattern_roles[$arr_name[0]]->labels->$caption_prop 
+                    : '';
 
                     if (
                         $include_warnings && isset($wp_roles->role_names[$arr_name[0]])
@@ -105,13 +107,27 @@ class PermissionsAdmin
                     $type_caption = $type_obj->labels->singular_name;
                 } else {
                     $role_name = ($slug_fallback) ? $role_name : '';
-                    echo ($echo) ? $role_name : '';
+                    echo ($echo) ? esc_html($role_name) : '';
                     return $role_name;
                 }
 
                 $cond_caption = '';
 
                 if (isset($arr_name[4])) {
+                    if (!$show_disabled && ('post_status' == $arr_name[3])) {
+                        $status_obj = get_post_status_object($arr_name[4]);
+
+                        // Post status is undefined or disabled
+                        if (!$status_obj) {
+                            return false;
+                        }
+
+                        // Post status is not enabled for this post type
+                        if (!empty($type_obj) && !empty($status_obj->post_type) && !in_array($type_obj->name, (array) $status_obj->post_type)) {
+                            return false;
+                        }
+                    }
+
                     $cond_caption = apply_filters(
                         'presspermit_condition_caption',
                         ucwords(str_replace('_', ' ', $arr_name[4])),
@@ -125,8 +141,10 @@ class PermissionsAdmin
                         printf(
                             esc_html__('%1$s&nbsp;%2$s&nbsp;%3$s-&nbsp;%4$s%5$s%6$s', 'press-permit-core'),
                             esc_html($type_caption),
+                            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
                             str_replace(' ', '&nbsp;', esc_html($role_caption)),
                             '<span class="pp_nolink">',
+                            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
                             str_replace(' ', '&nbsp;', esc_html($cond_caption)),
                             '</span>',
                             ''
@@ -140,6 +158,8 @@ class PermissionsAdmin
                             );
                             echo '</span>';
                         }
+
+                        $echo_done = true;
                     } else {
                         $role_name = trim(
                             sprintf(
@@ -156,7 +176,7 @@ class PermissionsAdmin
                 } else {
                     if (!empty($args['echo'])) {
                         printf(
-                            esc_html__('%1$s&nbsp;%2$s&nbsp;%3$s', 'press-permit-core'),
+                            esc_html__('%1$s&nbsp;%2$s%3$s', 'press-permit-core'),
                             esc_html($type_caption),
                             esc_html($role_caption),
                             ''
@@ -170,13 +190,15 @@ class PermissionsAdmin
                             ); 
                             echo '</span>';
                         }
+
+                        $echo_done = true;
                     } else {
                         $role_name = trim(
                             sprintf(
-                                esc_html__('%1$s&nbsp;%2$s&nbsp;%3$s', 'press-permit-core'),
+                                esc_html__('%1$s&nbsp;%2$s%3$s', 'press-permit-core'),
                                 esc_html($type_caption),
                                 esc_html($role_caption),
-                                $warning // previously escaped in this function
+                                " $warning" // previously escaped in this function
                             )
                         );
                     }
@@ -188,7 +210,7 @@ class PermissionsAdmin
             $role_name = apply_filters('presspermit_role_title', $role_name, $args);
         }
 
-        echo ($echo) ? $role_name : '';
+        echo ($echo && empty($echo_done)) ? esc_html($role_name) : '';
         return $role_name;
     }
 }

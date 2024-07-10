@@ -62,9 +62,11 @@ class SettingsTabAdvanced
             $opt = array_merge($opt, [
                 'anonymous_unfiltered' => sprintf(esc_html__('%1$sDisable%2$s all filtering for anonymous users', 'press-permit-core'), '', ''),
                 'suppress_administrator_metagroups' => sprintf(esc_html__('%1$sDo not apply%2$s metagroup permissions for Administrators', 'press-permit-core'), '', ''),
+                'limit_front_end_term_filtering' => sprintf(esc_html__('Limit front-end category / term filtering', 'press-permit-core')),
                 'user_search_by_role' => esc_html__('User Search: Filter by WP role', 'press-permit-core'),
                 'display_hints' => esc_html__('Display Administrative Hints', 'press-permit-core'),
                 'display_extension_hints' => esc_html__('Display Module Hints', 'press-permit-core'),
+                'pattern_roles_include_generic_rolecaps' => esc_html__('Type-specific Supplemental Roles also provide all general capabilities in Pattern Role', 'press-permit-core'),
                 'dynamic_wp_roles' => esc_html__('Detect Dynamically Mapped WP Roles', 'press-permit-core'),
                 'non_admins_set_read_exceptions' => esc_html__('Non-Administrators can set Reading Permissions for their editable posts', 'press-permit-core'),
                 'users_bulk_groups' => esc_html__('Bulk Add / Remove Groups on Users Screen', 'press-permit-core'),
@@ -80,10 +82,10 @@ class SettingsTabAdvanced
 
         if ($this->enabled) {
             $new = array_merge($new, [
-                'anonymous' => ['anonymous_unfiltered', 'suppress_administrator_metagroups'],
+                'anonymous' => ['anonymous_unfiltered', 'suppress_administrator_metagroups', 'limit_front_end_term_filtering'],
                 'permissions_admin' => ['non_admins_set_read_exceptions'],
                 'user_permissions' => ['user_permissions'],
-                'role_integration' => ['dynamic_wp_roles'],
+                'role_integration' => ['pattern_roles_include_generic_rolecaps', 'dynamic_wp_roles'],
                 'misc' => ['users_bulk_groups', 'user_search_by_role', 'display_hints', 'display_extension_hints'],
             ]);
         }
@@ -148,6 +150,8 @@ class SettingsTabAdvanced
                         $ui->optionCheckbox('anonymous_unfiltered', $tab, $section, true);
 
                         $ui->optionCheckbox('suppress_administrator_metagroups', $tab, $section, true);
+
+                        $ui->optionCheckbox('limit_front_end_term_filtering', $tab, $section, true);
 
                         do_action('presspermit_options_ui_insertion', $tab, $section);
                         ?>
@@ -266,6 +270,12 @@ class SettingsTabAdvanced
                 <tr>
                     <th scope="row"><?php echo esc_html($ui->section_captions[$tab][$section]); ?></th>
                     <td>
+                        <?php
+                        $ui->optionCheckbox('pattern_roles_include_generic_rolecaps', $tab, $section, true, '');
+                        
+                        do_action('presspermit_options_ui_insertion', $tab, $section);
+                        ?>
+
                         <div>
                         <?php printf(
                             esc_html__('To control the makeup of Supplemental Roles, see %1$sRole Usage%2$s.', 'press-permit-core'),
@@ -462,7 +472,9 @@ class SettingsTabAdvanced
 
                     <div id="pp_modify_default_settings" class="pp-settings-code">
                         <?php
-                        esc_html_e("To modify one or more default settings network-wide, <strong>copy</strong> the following code into your theme's <strong>functions.php</strong> file (or some other file which is always executed and not auto-updated) and modify as desired:", 'press-permit-core');
+                        $msg = esc_html__("To modify one or more default settings network-wide, <strong>copy</strong> the following code into your theme's <strong>functions.php</strong> file (or some other file which is always executed and not auto-updated) and modify as desired:", 'press-permit-core');
+                        $msg = str_replace(['&lt;strong&gt;', '&lt;/strong&gt;'], '', $msg);
+                        _e($msg);
                         ?>
                         <textarea rows='10' cols='150' readonly='readonly'>
     // Use this filter if you want to change the default, but still allow manual setting
@@ -481,14 +493,16 @@ class SettingsTabAdvanced
 
                     <div id="pp_force_settings" class="pp-settings-code">
                         <?php
-                        esc_html_e("To force the value of one or more settings network-wide, <strong>copy</strong> the following code into your theme's <strong>functions.php</strong> file (or some other file which is always executed and not auto-updated) and modify as desired:", 'press-permit-core');
+                        $msg  = esc_html__("To force the value of one or more settings network-wide, <strong>copy</strong> the following code into your theme's <strong>functions.php</strong> file (or some other file which is always executed and not auto-updated) and modify as desired:", 'press-permit-core');
+                        $msg = str_replace(['&lt;strong&gt;', '&lt;/strong&gt;'], '', $msg);
+                        _e($msg);
                         ?>
                         <textarea rows='13' cols='150' readonly='readonly'>
     // Use this filter if you want to force an option, blocking/disregarding manual setting
     add_filter( 'presspermit_options', 'my_presspermit_options', 99 );
 
     // Use this filter if you also want to hide an option from the PP settings screen (works for most options)
-    add_filter( 'presspermit_hide_options', 'my_pp_options', 99 );
+    add_filter( 'presspermit_hide_options', 'my_presspermit_options', 99 );
 
     public function my_presspermit_options( $options ) {
         // Array key corresponds to pp_prefixed name attributes of checkboxes, dropdowns and input boxes. 

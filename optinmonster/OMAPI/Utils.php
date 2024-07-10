@@ -101,17 +101,15 @@ class OMAPI_Utils {
 	 * A back-compatible parse_url helper.
 	 *
 	 * @since 2.3.0
+	 * @deprecated 2.16.3 Use `wp_parse_url`.
 	 *
 	 * @param  string $url URL to parse.
 	 *
 	 * @return array       The URL parts.
 	 */
 	public static function parse_url( $url ) {
-		// NOTE: Error suppression is used as prior to PHP 5.3.3, an
-		// E_WARNING would be generated when URL parsing failed.
-		return function_exists( 'wp_parse_url' )
-			? wp_parse_url( $url )
-			: parse_url( $url ); // phpcs:ignore WordPress.WP.AlternativeFunctions.parse_url_parse_url
+		_deprecated_function( __METHOD__, '2.17.0', 'wp_parse_url' );
+		return wp_parse_url( $url );
 	}
 
 	/**

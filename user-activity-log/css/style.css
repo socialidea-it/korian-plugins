@@ -523,7 +523,9 @@ td.column-description {
 	right: 0;
 	top: 0;
 	vertical-align: middle;
-	width: 29px;
+	width: 30px;
+	height: 30px;
+	padding-block-end: 3px !important;
 }
 #ual-advertisement-popup {
 	line-height: 0;

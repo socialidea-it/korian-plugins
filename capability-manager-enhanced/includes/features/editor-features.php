@@ -66,7 +66,7 @@ $active_tab_text = is_object($active_tab_type_obj)
 
 <div class="wrap publishpress-caps-manage pressshack-admin-wrapper pp-capability-menus-wrapper editor-features">
     <div id="icon-capsman-admin" class="icon32"></div>
-    <h2><?php esc_html_e('Editor Feature Restriction', 'capsman-enhanced'); ?></h2>
+    <h2><?php esc_html_e('Editor Feature Restrictions', 'capability-manager-enhanced'); ?></h2>
 
     <form method="post" id="ppc-editor-features-form"
             action="admin.php?page=pp-capabilities-editor-features">
@@ -77,16 +77,6 @@ $active_tab_text = is_object($active_tab_type_obj)
                 <table id="akmin">
                     <tr>
                         <td class="content">
-
-                            <div class="publishpress-headline">
-                                <span class="cme-subtext">
-                                <span class='pp-capability-role-caption'>
-                                <?php
-                                esc_html_e('Select editor features to remove. Note that this screen cannot be used to grant additional features to any role.', 'capsman-enhanced');
-                                ?>
-                                </span>
-                                </span>
-                            </div>
 
                             <div class="publishpress-filters">
                                 <select name="ppc-editor-features-role" class="ppc-editor-features-role">
@@ -122,27 +112,27 @@ $active_tab_text = is_object($active_tab_type_obj)
                             <div>
                                 <div class="pp-capabilities-submit-top" style="float:right">
                                     <input type="submit" name="editor-features-all-submit"
-                                            value="<?php esc_attr_e('Save for all Post Types', 'capsman-enhanced') ?>"
+                                            value="<?php esc_attr_e('Save for all Post Types', 'capability-manager-enhanced') ?>"
                                             class="button-secondary ppc-editor-features-submit" style="float:right" />
                                             
                                     <input type="submit" name="editor-features-submit"
-                                        value="<?php esc_attr_e(sprintf(esc_html__('Save %s Restrictions', 'capsman-enhanced'), esc_html($active_tab_text))); ?>"
+                                        value="<?php esc_attr_e(sprintf(esc_html__('Save %s Restrictions', 'capability-manager-enhanced'), esc_html($active_tab_text))); ?>"
                                         class="button-primary ppc-editor-features-submit" style="float:right"
-                                        data-current_cpt="<?php esc_attr_e(sprintf(esc_html__('Save %s Restrictions', 'capsman-enhanced'), 'post_type')); ?>" />
+                                        data-current_cpt="<?php esc_attr_e(sprintf(esc_html__('Save %s Restrictions', 'capability-manager-enhanced'), 'post_type')); ?>" />
                                 </div>
                             
                             <?php if ($classic_editor) : ?>
                                 <ul class="nav-tab-wrapper">
                                     <li class="editor-features-tab gutenberg-tab nav-tab <?php if (empty($_REQUEST['ppc-tab']) || ('gutenberg' == $_REQUEST['ppc-tab'])) echo 'nav-tab-active';?>"
-                                        data-tab=".editor-features-gutenberg"><a href="#"><?php esc_html_e('Gutenberg', 'capsman-enhanced') ?></a></li>
+                                        data-tab=".editor-features-gutenberg"><a href="#"><?php esc_html_e('Gutenberg', 'capability-manager-enhanced') ?></a></li>
 
                                     <li class="editor-features-tab classic-tab nav-tab <?php if (!empty($_REQUEST['ppc-tab']) && ('classic' == $_REQUEST['ppc-tab'])) echo 'nav-tab-active';?>"
-                                        data-tab=".editor-features-classic"><a href="#"><?php esc_html_e('Classic', 'capsman-enhanced') ?></a></li>
+                                        data-tab=".editor-features-classic"><a href="#"><?php esc_html_e('Classic', 'capability-manager-enhanced') ?></a></li>
                                 </ul>
                             <?php else: ?>
-                                <div class="ppc-editor-features-classic-toggle">
+                                <div class="ppc-editor-features-classic-toggle" style="visibility: hidden;">
                                 <input type="submit" name="editor-features-classic-editor-toggle"
-                                    value="<?php esc_attr_e('show Classic Editor controls', 'capsman-enhanced') ?>"
+                                    value="<?php esc_attr_e('show Classic Editor controls', 'capability-manager-enhanced') ?>"
                                     class="button-secondary ppc-editor-classic-toggle-button" />
                                 </div>
                             <?php endif; ?>
@@ -171,14 +161,14 @@ $active_tab_text = is_object($active_tab_type_obj)
                                                                 $disabled_count += (is_array($ce_post_disabled) && isset($ce_post_disabled[$type_name])) ? count($ce_post_disabled[$type_name]) : 0;
 
                                                                 ?>
-                                                                <li data-slug="<?php esc_attr_e($type_name); ?>" 
-                                                                    data-content="cme-cap-type-tables-<?php esc_attr_e($type_name); ?>" 
-                                                                    data-name="<?php esc_attr_e($type_obj->labels->singular_name); ?>"
-                                                                    class="<?php esc_attr_e($active_class); ?>">
-                                                                    <?php esc_html_e($type_obj->labels->singular_name); ?>
+                                                                <li data-slug="<?php echo esc_attr($type_name); ?>" 
+                                                                    data-content="cme-cap-type-tables-<?php echo esc_attr($type_name); ?>" 
+                                                                    data-name="<?php echo esc_attr($type_obj->labels->singular_name); ?>"
+                                                                    class="<?php echo esc_attr($active_class); ?>">
+                                                                    <?php echo esc_html($type_obj->labels->singular_name); ?>
                                                                     <?php if ($disabled_count > 0) : ?>
                                                                         <span class="pp-capabilities-feature-count">
-                                                                            <?php echo esc_html__('Restricted:', 'capsman-enhanced') . ' ' . esc_html($disabled_count); ?>
+                                                                            <?php echo esc_html__('Restricted:', 'capability-manager-enhanced') . ' ' . esc_html($disabled_count); ?>
                                                                         </span>
                                                                     <?php endif; ?>
                                                                 </li>
@@ -188,16 +178,16 @@ $active_tab_text = is_object($active_tab_type_obj)
                                                     </ul>
                                                 </div>
 
-                                                <div class="ppc-capabilities-content">
+                                                <div class="ppc-capabilities-content editor-features-content">
                                                     <?php
-                                                        //we want to remove empty header for row without feature for post typr
+                                                        //we want to remove empty header for row without feature for post type
                                                         $empty_post_type_feature       = [];
                                                         $empty_post_type_feature_class = [];
                                                         foreach($def_post_types as $type_name) {
                                                             $type_obj = get_post_type_object($type_name);
                                                             $active_style = ($type_name === $active_tab_slug) ? '' : 'display:none;';
                                                             ?>
-                                                            <div id="cme-cap-type-tables-<?php esc_attr_e($type_name); ?>" style="<?php esc_attr_e($active_style); ?>">
+                                                            <div id="cme-cap-type-tables-<?php echo esc_attr($type_name); ?>" style="<?php echo esc_attr($active_style); ?>">
                                                                 <?php
                                                                 include(dirname(__FILE__) . '/editor-features-gutenberg.php');
 
@@ -224,13 +214,13 @@ $active_tab_text = is_object($active_tab_type_obj)
                                 <div style="float:right">
                                 
                                 <input type="submit" name="editor-features-all-submit"
-                                    value="<?php esc_attr_e('Save for all Post Types', 'capsman-enhanced') ?>"
+                                    value="<?php esc_attr_e('Save for all Post Types', 'capability-manager-enhanced') ?>"
                                     class="button-secondary ppc-editor-features-submit" style="float:right" />
                                 
                                 <input type="submit" name="editor-features-submit"
-                                    value="<?php esc_attr_e(sprintf(esc_html__('Save %s Restrictions', 'capsman-enhanced'), esc_html($active_tab_text))); ?>"
+                                    value="<?php esc_attr_e(sprintf(esc_html__('Save %s Restrictions', 'capability-manager-enhanced'), esc_html($active_tab_text))); ?>"
                                     class="button-primary ppc-editor-features-submit" style="float:right"
-                                    data-current_cpt="<?php esc_attr_e(sprintf(esc_html__('Save %s Restrictions', 'capsman-enhanced'), 'post_type')); ?>" />
+                                    data-current_cpt="<?php esc_attr_e(sprintf(esc_html__('Save %s Restrictions', 'capability-manager-enhanced'), 'post_type')); ?>" />
 
                                 </div>
                             </div>
@@ -239,40 +229,20 @@ $active_tab_text = is_object($active_tab_type_obj)
                     </tr>
                 </table>
             </div><!-- .pp-column-left -->
-            <div class="pp-column-right">
+            <div class="pp-column-right pp-capabilities-sidebar">
                 <?php 
-                $banners = new PublishPress\WordPressBanners\BannersMain;
                 $banner_messages = ['<p>'];
-                $banner_messages[] = sprintf(esc_html__('%1$s = No change', 'capsman-enhanced'), '<input type="checkbox" title="'. esc_attr__('usage key', 'capsman-enhanced') .'" disabled>');
-                $banner_messages[] = sprintf(esc_html__('%1$s = This feature is denied', 'capsman-enhanced'), '<input type="checkbox" title="'. esc_attr__('usage key', 'capsman-enhanced') .'" checked disabled>');
+                $banner_messages[] = esc_html__('Editor Features allows you to remove elements from the post editing screen.', 'capability-manager-enhanced');
+                $banner_messages[] = '</p><p>';
+                $banner_messages[] = sprintf(esc_html__('%1$s = No change', 'capability-manager-enhanced'), '<input type="checkbox" title="'. esc_attr__('usage key', 'capability-manager-enhanced') .'" disabled>') . ' <br />';
+                $banner_messages[] = sprintf(esc_html__('%1$s = This feature is denied', 'capability-manager-enhanced'), '<input type="checkbox" title="'. esc_attr__('usage key', 'capability-manager-enhanced') .'" checked disabled>'). ' <br />';
                 $banner_messages[] = '<p>';
-                $banners->pp_display_banner(
-                    '',
-                    __('How to use Editor Features', 'capsman-enhanced'),
-                    $banner_messages,
-                    'https://publishpress.com/knowledge-base/checkboxes/',
-                    __('View Documentation', 'capsman-enhanced'),
-                    '',
-                    'button ppc-checkboxes-documentation-link'
-                );
+                $banner_messages[] = '<p><a class="button ppc-checkboxes-documentation-link" href="https://publishpress.com/knowledge-base/editor-features/"target="blank">' . esc_html__('View Documentation', 'capability-manager-enhanced') . '</a></p>';
+                $banner_title  = __('How to use Editor Features', 'capability-manager-enhanced');
+                pp_capabilities_sidebox_banner($banner_title, $banner_messages);
+                // add promo sidebar
+                pp_capabilities_pro_sidebox();
                 ?>
-                <?php if (defined('CAPSMAN_PERMISSIONS_INSTALLED') && !CAPSMAN_PERMISSIONS_INSTALLED) { ?>
-                    <?php
-                    $banners = new PublishPress\WordPressBanners\BannersMain;
-                    $banners->pp_display_banner(
-                        esc_html__( 'Recommendations for you', 'capsman-enhanced' ),
-                        esc_html__( 'Control permissions for individual posts and pages', 'capsman-enhanced' ),
-                        array(
-                            esc_html__( 'Choose who can read and edit each post.', 'capsman-enhanced' ),
-                            esc_html__( 'Allow specific user roles or users to manage each post.', 'capsman-enhanced' ),
-                            esc_html__( 'PublishPress Permissions is 100% free to install.', 'capsman-enhanced' )
-                        ),
-                        admin_url( 'plugin-install.php?s=publishpress-ppcore-install&tab=search&type=term' ),
-                        esc_html__( 'Click here to install PublishPress Permissions', 'capsman-enhanced' ),
-                        'install-permissions.jpg'
-                    );
-                    ?>
-                <?php } ?>
             </div><!-- .pp-column-right -->
         </div><!-- .pp-columns-wrapper -->
     </form>

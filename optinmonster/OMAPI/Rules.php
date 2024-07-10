@@ -109,14 +109,21 @@ class OMAPI_Rules {
 	 *
 	 * @var OMAPI_WooCommerce_Rules
 	 */
-	protected $woocommerce = null;
+	protected static $woocommerce = null;
 
 	/**
 	 * The OMAPI_EasyDigitalDownloads_Rules instance.
 	 *
 	 * @var OMAPI_EasyDigitalDownloads_Rules
 	 */
-	protected $edd = null;
+	protected static $edd = null;
+
+	/**
+	 * The OMAPI_MemberPress_Rules instance.
+	 *
+	 * @var OMAPI_MemberPress_Rules
+	 */
+	protected static $mp = null;
 
 	/**
 	 * The last instance called of this class.
@@ -158,18 +165,32 @@ class OMAPI_Rules {
 	 * @since 2.8.0
 	 */
 	public function set() {
-		$this->woocommerce = new OMAPI_WooCommerce_Rules( $this );
-		$this->edd         = new OMAPI_EasyDigitalDownloads_Rules( $this );
-
-		$fields = array_merge(
-			$this->fields,
-			$this->woocommerce->get_fields(),
-			$this->edd->get_fields()
-		);
-
-		$this->fields = apply_filters( 'optin_monster_api_output_fields', $fields );
-
 		self::$last_instance = $this;
+
+		self::init_extensions();
+
+		$this->fields = apply_filters( 'optin_monster_api_output_fields', $this->fields );
+	}
+
+	/**
+	 * Initiates the 3rd party extension rules.
+	 *
+	 * @since 2.13.0
+	 *
+	 * @return void
+	 */
+	public static function init_extensions() {
+		if ( self::$woocommerce ) {
+			return;
+		}
+
+		self::$woocommerce = new OMAPI_WooCommerce_Rules();
+		self::$edd         = new OMAPI_EasyDigitalDownloads_Rules();
+		self::$mp          = new OMAPI_MemberPress_Rules();
+
+		self::$woocommerce->init_hooks();
+		self::$edd->init_hooks();
+		self::$mp->init_hooks();
 	}
 
 	/**
@@ -328,6 +349,11 @@ class OMAPI_Rules {
 	 * @return OMAPI_Rules
 	 */
 	public function collect_optin_fields() {
+		// Bail early if the optin id is empty.
+		if ( empty( $this->optin->ID ) ) {
+			return $this;
+		}
+
 		foreach ( $this->fields as $field ) {
 			$this->field_values[ $field ] = get_post_meta( $this->optin->ID, '_omapi_' . $field, true );
 		}
@@ -422,7 +448,7 @@ class OMAPI_Rules {
 
 		// Check for global disable.
 		if ( get_post_meta( $this->post_id, 'om_disable_all_campaigns', true ) ) {
-			$this->global_override = false;
+			$this->set_global_override( false );
 			throw new OMAPI_Rules_False( "all campaigns disabled for this post ($this->post_id)" );
 		}
 
@@ -430,8 +456,8 @@ class OMAPI_Rules {
 
 		// Set flag for possibly not loading globally.
 		if ( $this->field_not_empty_array( 'only' ) ) {
-			$this->global_override           = false;
-			$this->advanced_settings['show'] = $this->get_field_value( 'only' );
+			$this->set_global_override( false );
+			$this->set_advanced_settings_field( 'show', $this->get_field_value( 'only' ) );
 
 			// If the optin is only to be shown on specific post IDs...
 			if ( $this->item_in_field( $this->post_id, 'only' ) ) {
@@ -467,8 +493,8 @@ class OMAPI_Rules {
 
 		if ( $this->field_not_empty_array( 'show' ) ) {
 			// Set flag for not loading globally.
-			$this->global_override           = false;
-			$this->advanced_settings['show'] = $this->get_field_value( 'show' );
+			$this->set_global_override( false );
+			$this->set_advanced_settings_field( 'show', $this->get_field_value( 'show' ) );
 		}
 
 		if (
@@ -505,8 +531,7 @@ class OMAPI_Rules {
 	 * @return void
 	 */
 	public function plugin_checks() {
-		$this->woocommerce->run_checks();
-		$this->edd->run_checks();
+		do_action( 'optinmonster_campaign_should_output_plugin_checks', $this );
 	}
 
 	/**
@@ -585,8 +610,8 @@ class OMAPI_Rules {
 
 		if ( $this->field_not_empty_array( 'categories' ) ) {
 			// Set flag for possibly not loading globally.
-			$this->global_override                 = false;
-			$this->advanced_settings['categories'] = $categories;
+			$this->set_global_override( false );
+			$this->set_advanced_settings_field( 'categories', $categories );
 		}
 
 		// If this is the home page, check to see if they have decided to load on certain archive pages.
@@ -660,8 +685,8 @@ class OMAPI_Rules {
 		if ( $values ) {
 			foreach ( $values as $i => $value ) {
 				if ( OMAPI_Utils::field_not_empty_array( $values, $i ) ) {
-					$this->global_override                 = false;
-					$this->advanced_settings['taxonomies'] = $taxonomies;
+					$this->set_global_override( false );
+					$this->set_advanced_settings_field( 'taxonomies', $taxonomies );
 					break;
 				}
 			}
@@ -759,9 +784,11 @@ class OMAPI_Rules {
 			case 'caught':
 			case 'global_override':
 			case 'advanced_settings':
+				return $this->$property;
 			case 'woocommerce':
 			case 'edd':
-				return $this->$property;
+			case 'mp':
+				return self::$$property;
 			default:
 				break;
 		}
@@ -826,21 +853,23 @@ class OMAPI_Rules {
 		$show    = $this->caught instanceof OMAPI_Rules_True;
 		$reasons = $this->caught->get_exception_messages();
 
+		// phpcs:disable WordPress.PHP.DevelopmentFunctions.error_log_var_export
 		?>
-		<xmp class="_om-debugging _om-campaign-sep"><?php echo esc_html( str_repeat( '-', 10 ) . $this->optin->post_name . str_repeat( '-', 10 ) ); ?></xmp>
-		<xmp class="_om-debugging _om-post-id">$post_id: <?php echo esc_html( print_r( $this->post_id, true ) ); ?></xmp>
-		<xmp class="_om-debugging _om-post-id">$debug_setting_enabled: <?php echo esc_html( print_r( OMAPI::get_instance()->get_option( 'api', 'omwpdebug' ), true ) ); ?></xmp>
-		<xmp class="_om-debugging _om-campaign-status" style="color: <?php echo ( $show ? 'green' : 'red' ); ?>;"><?php echo esc_html( $this->optin->post_name . ":\n" . print_r( $this->caught->getMessage(), true ) ); ?><?php echo ! empty( $reasons ) ? ":\n\t- " . implode( "\n\t- ", array_map( 'esc_html', $reasons ) ) : ''; ?>
-		</xmp>
+		<pre class="_om-debugging _om-campaign-sep"><?php echo esc_html( str_repeat( '-', 10 ) . $this->optin->post_name . str_repeat( '-', 10 ) ); ?></pre>
+		<pre class="_om-debugging _om-post-id">$post_id: <?php echo esc_html( var_export( $this->post_id, true ) ); ?></pre>
+		<pre class="_om-debugging _om-post-id">$debug_setting_enabled: <?php echo esc_html( var_export( OMAPI::get_instance()->get_option( 'api', 'omwpdebug' ), true ) ); ?></pre>
+		<pre class="_om-debugging _om-campaign-status" style="color: <?php echo ( $show ? 'green' : 'red' ); ?>;"><?php echo esc_html( $this->optin->post_name . ":\n" . var_export( $this->caught->getMessage(), true ) ); ?><?php echo ! empty( $reasons ) ? ":\n\t- " . implode( "\n\t- ", array_map( 'esc_html', $reasons ) ) : ''; ?>
+		</pre>
 		<?php if ( ! empty( $this->advanced_settings ) ) { ?>
-			<xmp class="_om-debugging _om-advanced-settings">$advanced_settings: <?php print_r( $this->advanced_settings ); ?></xmp>
+			<pre class="_om-debugging _om-advanced-settings">$advanced_settings: <?php echo esc_html( var_export( $this->advanced_settings, true ) ); ?></pre>
 		<?php } ?>
 		<?php if ( ! empty( $this->field_values ) ) { ?>
-			<xmp class="_om-debugging _om-field-values" style="display:none;">$field_values: <?php print_r( $this->field_values ); ?></xmp>
+			<pre class="_om-debugging _om-field-values" style="display:none;">$field_values: <?php echo esc_html( var_export( $this->field_values, true ) ); ?></pre>
 		<?php } ?>
-		<xmp class="_om-debugging _om-is-inline-check" style="display:none;">$is_inline_check?: <?php echo esc_html( print_r( $this->is_inline_check, true ) ); ?></xmp>
-		<xmp class="_om-debugging _om-global-override" style="display:none;">$global_override?: <?php echo esc_html( print_r( $this->global_override, true ) ); ?></xmp>
-		<xmp class="_om-debugging _om-optin" style="display:none;">$optin: <?php print_r( $this->optin ); ?></xmp>
+		<pre class="_om-debugging _om-is-inline-check" style="display:none;">$is_inline_check?: <?php echo esc_html( var_export( $this->is_inline_check, true ) ); ?></pre>
+		<pre class="_om-debugging _om-global-override" style="display:none;">$global_override?: <?php echo esc_html( var_export( $this->global_override, true ) ); ?></pre>
+		<pre class="_om-debugging _om-optin" style="display:none;">$optin: <?php echo esc_html( var_export( $this->optin, true ) ); ?></pre>
 		<?php
+		// phpcs:enable WordPress.PHP.DevelopmentFunctions.error_log_var_export
 	}
 }

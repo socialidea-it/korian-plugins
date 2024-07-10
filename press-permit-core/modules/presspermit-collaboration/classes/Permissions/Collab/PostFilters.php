@@ -26,8 +26,8 @@ class PostFilters
         if (('edit' == $required_operation) && ('include' == $args['mod']) && is_admin()) {
             global $pagenow, $current_user;
 
-            if (in_array($pagenow, ['post-new.php', 'post.php']) && !presspermit_empty_POST() && presspermit_is_REQUEST('action', ['edit', 'editpost'])) {
-                if ($post_id = PWP::getPostID()) {
+            if (in_array($pagenow, ['post-new.php', 'post.php']) && !PWP::empty_POST() && PWP::is_REQUEST('action', ['edit', 'editpost'])) {
+                 if ($post_id = PWP::getPostID()) {
                     $_post = get_post($post_id);
 
                     if (($current_user->ID == $_post->post_author) && ($_post->post_type == $post_type) 
@@ -54,7 +54,7 @@ class PostFilters
         if ('edit_post' == $meta_cap) {
             $user = presspermit()->getUser();
 
-            if ($missing_caps = array_diff($reqd_caps, array_keys($user->allcaps))) {
+            if ($missing_caps = array_diff($reqd_caps, array_keys(array_filter($user->allcaps)))) {
                 $type_obj = get_post_type_object($post_type);
                 $list_cap = str_replace('edit_', 'list_all_', $type_obj->cap->edit_posts);
 

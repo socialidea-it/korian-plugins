@@ -2,32 +2,36 @@
 
 namespace ACP;
 
-use AC\Registrable;
+use AC\Registerable;
 use AC\Request;
 
-class RequestParser implements Registrable {
+class RequestParser implements Registerable
+{
 
-	/**
-	 * @var RequestHandlerFactory
-	 */
-	private $handler_factory;
+    /**
+     * @var RequestHandlerFactory
+     */
+    private $handler_factory;
 
-	public function __construct( RequestHandlerFactory $handler_factory ) {
-		$this->handler_factory = $handler_factory;
-	}
+    public function __construct(RequestHandlerFactory $handler_factory)
+    {
+        $this->handler_factory = $handler_factory;
+    }
 
-	public function register() {
-		add_action( 'admin_init', [ $this, 'handle' ] );
-	}
+    public function register(): void
+    {
+        add_action('admin_init', [$this, 'handle']);
+    }
 
-	public function handle() {
-		if ( ! $this->handler_factory->is_request() ) {
-			return;
-		}
+    public function handle()
+    {
+        if ( ! $this->handler_factory->is_request()) {
+            return;
+        }
 
-		$this->handler_factory
-			->create()
-			->handle( new Request() );
-	}
+        $this->handler_factory
+            ->create()
+            ->handle(new Request());
+    }
 
 }

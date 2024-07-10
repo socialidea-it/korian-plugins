@@ -2,12 +2,14 @@
 
 namespace ACP\Editing\Service;
 
-use AC\Request;
-use ACP;
+use AC\Helper\Select\Options\Paginated;
 use ACP\Editing;
 use ACP\Editing\PaginatedOptions;
+use ACP\Editing\PaginatedOptionsFactory;
 use ACP\Editing\Service;
 use ACP\Editing\Storage;
+use ACP\Editing\View;
+use InvalidArgumentException;
 
 class Users implements Service, PaginatedOptions {
 
@@ -22,17 +24,17 @@ class Users implements Service, PaginatedOptions {
 	protected $storage;
 
 	/**
-	 * @var Editing\PaginatedOptionsFactory
+	 * @var PaginatedOptionsFactory
 	 */
 	private $options_factory;
 
-	public function __construct( Editing\View\AjaxSelect $view, Storage $storage, Editing\PaginatedOptionsFactory $options_factory ) {
+	public function __construct( Editing\View\AjaxSelect $view, Storage $storage, PaginatedOptionsFactory $options_factory ) {
 		$this->view = $view;
 		$this->storage = $storage;
 		$this->options_factory = $options_factory;
 	}
 
-	public function get_view( $context ) {
+	public function get_view( string $context ): ?View {
 		$view = $this->view;
 
 		if ( $context === self::CONTEXT_BULK ) {
@@ -42,55 +44,63 @@ class Users implements Service, PaginatedOptions {
 		return $view;
 	}
 
-	public function get_value( $id ) {
+	public function get_value( int $id ) {
+		$ids = $this->get_user_ids( $id );
+
+		return $ids
+			? array_filter( array_map( [ ac_helper()->user, 'get_display_name' ], array_combine( $ids, $ids ) ) )
+			: [];
+	}
+
+	/**
+	 * @param int $id
+	 *
+	 * @return int[]
+	 */
+	private function get_user_ids( int $id ) {
 		$ids = $this->storage->get( $id );
 
-		if ( empty( $ids ) || ! is_array( $ids ) ) {
-			return false;
-		}
-
-		if ( is_scalar( $ids ) ) {
-			$ids = [ $ids ];
-		}
-
-		$values = [];
-
-		foreach ( $ids as $_id ) {
-			$values[ $_id ] = ac_helper()->user->get_display_name( $_id );
-		}
-
-		return $values;
+		return $ids && is_array( $ids )
+			? array_map( 'intval', array_filter( $ids, 'is_numeric' ) )
+			: [];
 	}
 
-	public function update( Request $request ) {
-		$params = $request->get( 'value' );
-		$id = (int) $request->get( 'id' );
+	public function update( int $id, $data ): void {
+		$method = $data['method'] ?? null;
 
-		if ( ! isset( $params['method'] ) ) {
-			$params = [
-				'method' => 'replace',
-				'value'  => $params,
-			];
+		if ( $method === null ) {
+			$this->storage->update( $id, $data && is_array( $data ) ? $this->sanitize_ids( $data ) : null );
+
+			return;
 		}
 
-		switch ( $params['method'] ) {
-			case 'add':
-				$ids = array_merge( array_keys( $this->get_value( $id ) ), $params['value'] );
+		$ids = $data['value'] ?? null;
 
+		if ( ! is_array( $ids ) ) {
+			throw new InvalidArgumentException( 'Invalid value' );
+		}
+
+		$ids = $this->sanitize_ids( $ids );
+
+		switch ( $method ) {
+			case 'add':
+				$this->storage->update( $id, array_merge( $this->get_user_ids( $id ), $ids ) ?: null );
 				break;
 			case 'remove':
-				$ids = array_diff( array_keys( $this->get_value( $id ) ), $params['value'] );
-
+				$this->storage->update( $id, array_diff( $this->get_user_ids( $id ), $ids ) ?: null );
 				break;
+			case 'replace':
 			default:
-				$ids = $params['value'];
+				$this->storage->update( $id, $ids ?: null );
 		}
-
-		return $this->storage->update( $id, $ids );
 	}
 
-	public function get_paginated_options( $s, $paged, $id = null ) {
-		return $this->options_factory->create( $s, $paged, $id );
+	protected function sanitize_ids( array $ids ): array {
+		return array_map( 'intval', array_unique( array_filter( $ids ) ) );
+	}
+
+	public function get_paginated_options( string $search, int $page, int $id = null ): Paginated {
+		return $this->options_factory->create( $search, $page, $id );
 	}
 
 }

@@ -6,75 +6,82 @@ use AC;
 use AC\ListScreenRepository\Storage;
 use AC\Type\ListScreenId;
 
-class StickyTableRow implements AC\Registrable {
+class StickyTableRow implements AC\Registerable
+{
 
-	/**
-	 * @var Storage
-	 */
-	private $storage;
+    private $storage;
 
-	public function __construct( Storage $storage ) {
-		$this->storage = $storage;
-	}
+    public function __construct(Storage $storage)
+    {
+        $this->storage = $storage;
+    }
 
-	public function register() {
-		add_action( 'ac/table', [ $this, 'register_screen_option' ] );
+    public function register(): void
+    {
+        add_action('ac/table', [$this, 'register_screen_option']);
 
-		$this->ajax_handler()->register();
-	}
+        $this->ajax_handler()->register();
+    }
 
-	private function ajax_handler() {
-		$handler = new AC\Ajax\Handler();
+    private function ajax_handler(): AC\Ajax\Handler
+    {
+        $handler = new AC\Ajax\Handler();
 
-		$handler
-			->set_action( 'acp_update_sticky_row_option' )
-			->set_callback( [ $this, 'update_sticky_table' ] );
+        $handler
+            ->set_action('acp_update_sticky_row_option')
+            ->set_callback([$this, 'update_sticky_table']);
 
-		return $handler;
-	}
+        return $handler;
+    }
 
-	public function preferences() {
-		return new AC\Preferences\Site( 'show_sticky_table_row' );
-	}
+    public function preferences(): AC\Preferences\Site
+    {
+        return new AC\Preferences\Site('show_sticky_table_row');
+    }
 
-	public function is_sticky( $key ) {
-		return (bool) apply_filters( 'acp/sticky_header/enable', $this->preferences()->get( $key ) );
-	}
+    public function is_sticky(string $storage_key): bool
+    {
+        return (bool)apply_filters('acp/sticky_header/enable', (bool)$this->preferences()->get($storage_key));
+    }
 
-	public function update_sticky_table() {
-		$this->ajax_handler()->verify_request();
+    public function update_sticky_table(): void
+    {
+        $this->ajax_handler()->verify_request();
 
-		$key = filter_input( INPUT_POST, 'list_screen' );
+        $list_id = filter_input(INPUT_POST, 'layout');
 
-		$list_screen = ListScreenId::is_valid_id( filter_input( INPUT_POST, 'layout' ) )
-			? $this->storage->find( new ListScreenId( filter_input( INPUT_POST, 'layout' ) ) )
-			: null;
+        if ( ! ListScreenId::is_valid_id($list_id)) {
+            wp_send_json_error();
+        }
 
-		if ( $list_screen ) {
-			$key = $list_screen->get_storage_key();
-		}
+        $list_screen = $this->storage->find(new ListScreenId($list_id));
 
-		$this->preferences()->set( $key, 'true' === filter_input( INPUT_POST, 'value' ) );
-		exit;
-	}
+        if ( ! $list_screen || ! $list_screen->is_user_allowed(wp_get_current_user())) {
+            wp_send_json_error();
+        }
 
-	/**
-	 * @param AC\Table\Screen $table
-	 */
-	public function register_screen_option( $table ) {
-		$list_screen = $table->get_list_screen();
+        $this->preferences()->set(
+            $list_screen->get_storage_key(),
+            'true' === filter_input(INPUT_POST, 'value')
+        );
+        wp_send_json_success();
+    }
 
-		if ( ! $list_screen->get_settings() ) {
-			return;
-		}
+    public function register_screen_option(AC\Table\Screen $table): void
+    {
+        $list_screen = $table->get_list_screen();
 
-		$check_box = ( new AC\Form\Element\Checkbox( 'acp_sticky_table_row' ) )
-			->set_options( [
-				'yes' => __( 'Sticky Headers', 'codepress-admin-columns' ),
-			] )
-			->set_value( $this->is_sticky( $table->get_list_screen()->get_storage_key() ) ? 'yes' : '' );
+        if ( ! $list_screen->get_settings()) {
+            return;
+        }
 
-		$table->register_screen_option( $check_box );
-	}
+        $check_box = (new AC\Form\Element\Checkbox('acp_sticky_table_row'))
+            ->set_options([
+                'yes' => __('Sticky Headers', 'codepress-admin-columns'),
+            ])
+            ->set_value($this->is_sticky($table->get_list_screen()->get_storage_key()) ? 'yes' : '');
+
+        $table->register_screen_option($check_box);
+    }
 
 }

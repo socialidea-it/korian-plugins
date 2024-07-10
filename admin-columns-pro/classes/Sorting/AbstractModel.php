@@ -2,82 +2,75 @@
 
 namespace ACP\Sorting;
 
-use ACP;
+use ACP\Sorting\Model\QueryBindings;
 use ACP\Sorting\Type\DataType;
 
-abstract class AbstractModel {
+/**
+ * Backwards compatible model for version older than 6.3
+ * @deprecated 6.3
+ */
+class AbstractModel
+{
 
-	/**
-	 * @var DataType
-	 */
-	protected $data_type;
+    public function __construct()
+    {
+        _deprecated_constructor(self::class, 'NEWVERSION', QueryBindings::class);
+    }
 
-	/**
-	 * @var bool
-	 */
-	protected $show_empty;
+    /**
+     * @var DataType
+     */
+    protected $data_type;
 
-	/**
-	 * @var Strategy\Comment|Strategy\Post|Strategy\User
-	 */
-	protected $strategy;
+    /**
+     * @var Strategy
+     */
+    protected $strategy;
 
-	public function __construct( DataType $data_type = null, $show_empty = null ) {
-		if ( null === $data_type ) {
-			$data_type = new DataType( DataType::STRING );
-		}
-		if ( null === $show_empty ) {
-			$show_empty = acp_sorting_show_all_results();
-		}
+    /**
+     * @var string
+     */
+    protected $order;
 
-		$this->data_type = $data_type;
-		$this->show_empty = (bool) $show_empty;
-	}
+    /**
+     * @depecated 6.3
+     */
+    public function set_strategy(Strategy $strategy): void
+    {
+        _deprecated_function(__FUNCTION__, '6.3');
 
-	/**
-	 * @return array
-	 */
-	public abstract function get_sorting_vars();
+        $this->strategy = $strategy;
+    }
 
-	/**
-	 * @param Strategy $strategy
-	 */
-	public function set_strategy( Strategy $strategy ) {
-		$this->strategy = $strategy;
-	}
+    public function get_sorting_vars()
+    {
+        _deprecated_function(__FUNCTION__, '6.3', QueryBindings::class);
 
-	/**
-	 * @return DataType
-	 */
-	public function get_data_type() {
-		return $this->data_type;
-	}
+        return [];
+    }
 
-	/**
-	 * Return the default or set order from the strategy.
-	 * Falls back to ASC if an invalid order is found
-	 * @return string ASC|DESC
-	 */
-	public function get_order() {
-		$order = strtoupper( $this->strategy->get_order() );
+    public function get_order(): string
+    {
+        _deprecated_function(__FUNCTION__, '6.3');
 
-		if ( 'ASC' !== $order ) {
-			$order = 'DESC';
-		}
+        return $this->order;
+    }
 
-		return $order;
-	}
+    public function set_order(string $order): void
+    {
+        _deprecated_function(__FUNCTION__, '6.3');
 
-	/**
-	 * Sorts an array ascending, maintains index association and returns keys
-	 *
-	 * @param array $array
-	 *
-	 * @return array Returns the array keys of the sorted array
-	 * @deprecated 5.2
-	 */
-	public function sort( array $array ) {
-		return ( new Sorter() )->sort( $array, $this->get_order(), $this->data_type, $this->show_empty );
-	}
+        $this->order = $order;
+    }
+
+    /**
+     * Sorts an array ascending, maintains index association and returns keys
+     */
+    public function sort(array $array): array
+    {
+        _deprecated_function(__METHOD__, '5.2');
+
+        return (new Sorter())->sort($array, new DataType(DataType::STRING));
+    }
 
 }

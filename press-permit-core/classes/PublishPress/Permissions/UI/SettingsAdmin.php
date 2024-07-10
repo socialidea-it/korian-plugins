@@ -84,6 +84,9 @@ class SettingsAdmin
         case 'anonymous_unfiltered' :
         return __('Disable Permissions filtering for users who are not logged in.', 'press-permit-core-hints');
 
+        case 'limit_front_end_term_filtering' :
+        return __('Legacy compatibility: front end term filters are not applied on some sites', 'press-permit-core-hints');
+
         case 'suppress_administrator_metagroups' :
         return __('If checked, pages blocked from the "All" or "Logged In" groups will still be listed to Administrators.', 'press-permit-core-hints');
 
@@ -98,6 +101,9 @@ class SettingsAdmin
 
         case 'display_extension_hints' :
         return  __('Display descriptive captions for additional functionality provided by missing or deactivated modules (Permissions Pro package).', 'press-permit-core-hints');
+
+        case 'pattern_roles_include_generic_rolecaps':
+        return __('Supplemental roles assigned for a specific post type will always apply "_posts" capabilities in the Pattern Role (Author, Editor, etc.) for the selected post type. This setting pertains to other capabilities in the Pattern Role. For the most consistent permissions model, capabilities unrelated to a specific type should not normally be granted by a type-specific role, but some installations may require it. Enable this setting to restore previous plugin behavior; leave it disabled for more narrowly targeted Supplemental Roles.', 'press-permit-core-hints');
 
         case 'dynamic_wp_roles' :
         return __('Detect user roles which are appended dynamically but not stored to the WP database. May be useful for sites that sync with Active Directory or other external user registration systems.', 'press-permit-core-hints');
@@ -195,7 +201,7 @@ class SettingsAdmin
 		return esc_html__("Circle membership does not limit page association (page parent setting) ability", 'press-permit-core-hints');
 
         case 'PP_AUTO_DEFAULT_TERM' :
-		return esc_html__("When saving a post, if default term (of any taxonomy) is not in user's subset of assignable terms, substitute first available", 'press-permit-core-hints');
+		return esc_html__("Determines the default value of Permissions > Settings > Editing > Auto-assign default term", 'press-permit-core-hints');
 
         case 'PP_AUTO_DEFAULT_CATEGORY' :
 		return esc_html__("When saving a post, if default category is not in user's subset of assignable categories, substitute first available", 'press-permit-core-hints');
@@ -207,7 +213,7 @@ class SettingsAdmin
 		return esc_html__("When saving a post, if default term (of specified taxonomy) is not in user's subset of assignable tags, substitute first available", 'press-permit-core-hints');
 
         case 'PP_NO_AUTO_DEFAULT_TERM' :
-		return esc_html__("When saving a post, never auto-assign a term (of any taxonomy), even if it is the user's only assignable term", 'press-permit-core-hints');
+		return esc_html__("Determines the default setting of Permissions > Settings > Editing > Auto-assign default terms", 'press-permit-core-hints');
 
         case 'PP_AUTO_DEFAULT_CATEGORY' :
 		return esc_html__("When saving a post, never auto-assign a category, even if it is the user's only assignable category", 'press-permit-core-hints');
@@ -359,10 +365,13 @@ class SettingsAdmin
 
             echo "<div class='agp-opt-checkbox " . esc_attr($option_name) . "' style='" . esc_attr($div_style) . "'>"
                 . "<label for='" . esc_attr($option_name) . "' title='" . esc_attr($title) . "'>"
-                . "<input name='" . esc_attr($option_name) . "' type='checkbox' " . esc_attr($disabled) . " style='" . esc_attr($style) . "' id='" . esc_attr($option_name) . "' value='1' " . esc_attr(checked('1', $return['val'], false)) . " autocomplete='off' /> "
-                . ( $display_label ? esc_html( $this->option_captions[$option_name] ) : '' )
-
-                . "</label>";
+                . "<input name='" . esc_attr($option_name) . "' type='checkbox' " . esc_attr($disabled) . " style='" . esc_attr($style) . "' id='" . esc_attr($option_name) . "' value='1' " . esc_attr(checked('1', $return['val'], false)) . " autocomplete='off' /> ";
+                
+            if ($display_label) {
+                esc_html_e($this->option_captions[$option_name]);
+            }
+            
+            echo "</label>";
 
             if ($hint_text && $this->display_hints) {
                 $hint_class = 'pp-subtext';
@@ -390,16 +399,21 @@ class SettingsAdmin
 
     private function hideNetworkOption($option_name)
     {
+                                                                        // Precautionary exception: don't change storage location for license key
+    	$is_main_site = (defined('PRESSPERMIT_LEGACY_MAIN_SITE_CHECK') || (('edd_key' == $option_name) && !defined('PRESSPERMIT_EDD_KEY_SITEMETA_STORAGE'))) ? (1 == get_current_blog_id()) : is_main_site();
+    	
         if (is_multisite()) {
             return (in_array($option_name, presspermit()->netwide_options, true) && PWP::isNetworkActivated()
-                && !is_network_admin() && (1 != get_current_blog_id()));
+                && !is_network_admin() && !$is_main_site);
         } else
             return false;
     }
 
     public function filterNetworkOptions()
     {
-        if (is_multisite() && !is_network_admin() && (1 != get_current_blog_id())) {
+    	$is_main_site = (defined('PRESSPERMIT_LEGACY_MAIN_SITE_CHECK')) ? (1 == get_current_blog_id()) : is_main_site();
+    	
+        if (is_multisite() && !is_network_admin() && !$is_main_site) {
             $pp = presspermit();
             $this->all_options = array_diff($this->all_options, $pp->netwide_options);
             $this->all_otype_options = array_diff($this->all_otype_options, $pp->netwide_options);

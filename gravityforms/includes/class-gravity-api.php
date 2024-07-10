@@ -41,11 +41,7 @@ if ( ! class_exists( 'Gravity_Api' ) ) {
 		 * @return bool|WP_Error
 		 */
 		public function register_current_site( $license_key, $is_md5 = false ) {
-			update_option( 'gf_site_key','gravityforms.com' );
-			update_option( 'gf_site_secret', 'gravityforms.com' );
-		    GFCommon::log_debug( __METHOD__ . '(): site registration successful. Site Key: ' . $result->key );
-		    return true;
-/*
+
 			$body              = array();
 			$body['site_name'] = get_bloginfo( 'name' );
 			$body['site_url']  = get_bloginfo( 'url' );
@@ -73,7 +69,6 @@ if ( ! class_exists( 'Gravity_Api' ) ) {
 			GFCommon::log_debug( __METHOD__ . '(): site registration successful. Site Key: ' . $result['key'] );
 
 			return true;
-			*/
 		}
 
 		/**
@@ -319,6 +314,25 @@ if ( ! class_exists( 'Gravity_Api' ) ) {
 			$nocache = 'nocache=1'; //disabling server side caching
 
 			GFCommon::post_to_manager( 'version.php', $nocache, $options );
+		}
+
+		public function send_email_to_hubspot( $email ) {
+			GFCommon::log_debug( __METHOD__ . '(): Sending installation wizard to hubspot.' );
+
+			$body = array(
+				'email' => $email,
+			);
+
+			$result = $this->request( 'emails/installation/add-to-list', $body, 'POST', array( 'headers' => $this->get_license_info_header( $site_secret ) ) );
+			$result = $this->prepare_response_body( $result, true );
+
+			if ( is_wp_error( $result ) ) {
+				GFCommon::log_debug( __METHOD__ . '(): error sending installation wizard to hubspot. ' . print_r( $result, true ) );
+
+				return $result;
+			}
+
+			return true;
 		}
 
 		// # HELPERS

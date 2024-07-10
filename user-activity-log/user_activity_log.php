@@ -5,9 +5,9 @@
  * Description: Log the activity of users and roles to monitor your site with actions
  * Author: Solwin Infotech
  * Author URI: https://www.solwininfotech.com/
- * Version: 1.6
+ * Version: 2.0
  * Requires at least: 5.4
- * Tested up to: 6.1.1
+ * Tested up to: 6.5.3
  * Copyright: Solwin Infotech
  * License: GPLv2 or later
  *
@@ -443,24 +443,24 @@ if ( ! function_exists( 'ual_user_activity_function' ) ) :
 
 		if ( isset( $_GET['userrole'] ) && '' != $_GET['userrole'] ) {
 			$us_role = sanitize_text_field( wp_unslash( $_GET['userrole'] ) );
-			$where  .= " and user_role='$us_role'";
+			$where  .= $wpdb->prepare( ' AND user_role = %s', $us_role );
 		}
 		if ( isset( $_GET['showip'] ) && '' != $_GET['showip'] ) {
 			$ipaddress = sanitize_text_field( wp_unslash( $_GET['showip'] ) );
-			$where    .= " and ip_address='$ipaddress'";
+			$where    .= $wpdb->prepare( ' AND ip_address = %s', $ipaddress );
 		}
 
 		if ( isset( $_GET['username'] ) && '' != $_GET['username'] ) {
 			$us_name = sanitize_text_field( wp_unslash( $_GET['username'] ) );
-			$where  .= " and user_name='$us_name'";
+			$where  .= $wpdb->prepare( ' AND user_name = %s', $us_name );
 		}
 		if ( isset( $_GET['type'] ) && '' != $_GET['type'] ) {
 			$ob_type = sanitize_text_field( wp_unslash( $_GET['type'] ) );
-			$where  .= " and object_type='$ob_type'";
+			$where  .= $wpdb->prepare( ' AND object_type = %s', $ob_type );
 		}
 		if ( isset( $_GET['txtsearch'] ) && '' != $_GET['txtsearch'] ) {
 			$searchtxt = sanitize_text_field( wp_unslash( $_GET['txtsearch'] ) );
-			$where    .= " and user_name like '%" . $searchtxt . "%' or user_role like '%" . $searchtxt . "%' or object_type like '%" . $searchtxt . "%' or action like '%" . $searchtxt . "%'";
+			$where    .= $wpdb->prepare( ' AND user_name like %s or user_role like %s or object_type like %s or action like %s', '%' . $wpdb->esc_like( $searchtxt ) . '%', '%' . $wpdb->esc_like( $searchtxt ) . '%', '%' . $wpdb->esc_like( $searchtxt ) . '%', '%' . $wpdb->esc_like( $searchtxt ) . '%' );
 		}
 		if ( isset( $_GET['dateshow'] ) && in_array( $_GET['dateshow'], array( 'today', 'yesterday', 'week', 'this-month', 'month', '2-month', '3-month', '6-month', 'this-year', 'last-year', 'custom' ) ) ) {
 			$dateshow     = sanitize_text_field( wp_unslash( $_GET['dateshow'] ) );
@@ -474,7 +474,7 @@ if ( ! function_exists( 'ual_user_activity_function' ) ) :
 
 				$start_time = gmdate( 'Y-m-d', $start_time );
 				$end_time   = gmdate( 'Y-m-d', $end_time );
-				$where     .= $wpdb->prepare( ' AND modified_date > "%s" AND modified_date < "%s"', $start_time, $end_time );
+				$where     .= $wpdb->prepare( ' AND modified_date > %s AND modified_date < %s', $start_time, $end_time );
 
 			} elseif ( 'yesterday' === $get_time ) {
 				$start_time = strtotime( 'yesterday', $start_time );
@@ -482,7 +482,7 @@ if ( ! function_exists( 'ual_user_activity_function' ) ) :
 
 				$start_time = gmdate( 'Y-m-d', $start_time );
 				$end_time   = gmdate( 'Y-m-d', $end_time );
-				$where     .= $wpdb->prepare( ' AND modified_date > "%s" AND modified_date < "%s"', $start_time, $end_time );
+				$where     .= $wpdb->prepare( ' AND modified_date > %s AND modified_date < %s', $start_time, $end_time );
 
 			} elseif ( 'week' === $get_time ) {
 				$start_time = strtotime( '-1 week', $start_time );
@@ -490,7 +490,7 @@ if ( ! function_exists( 'ual_user_activity_function' ) ) :
 
 				$start_time = gmdate( 'Y-m-d', $start_time );
 				$end_time   = gmdate( 'Y-m-d', $end_time );
-				$where     .= $wpdb->prepare( ' AND modified_date > "%s" AND modified_date < "%s"', $start_time, $end_time );
+				$where     .= $wpdb->prepare( ' AND modified_date > %s AND modified_date < %s', $start_time, $end_time );
 
 			} elseif ( 'this-month' === $get_time ) {
 				$start_time = gmdate( 'Y-m-01' );
@@ -501,7 +501,7 @@ if ( ! function_exists( 'ual_user_activity_function' ) ) :
 
 				$start_time = gmdate( 'Y-m-d', $start_time );
 				$end_time   = gmdate( 'Y-m-d', $end_time );
-				$where     .= $wpdb->prepare( ' AND modified_date > "%s" AND modified_date < "%s"', $start_time, $end_time );
+				$where     .= $wpdb->prepare( ' AND modified_date > %s AND modified_date < %s', $start_time, $end_time );
 
 			} elseif ( 'month' === $get_time ) {
 				$start_time = strtotime( '-1 month', $start_time );
@@ -509,7 +509,7 @@ if ( ! function_exists( 'ual_user_activity_function' ) ) :
 
 				$start_time = gmdate( 'Y-m-d', $start_time );
 				$end_time   = gmdate( 'Y-m-d', $end_time );
-				$where     .= $wpdb->prepare( ' AND modified_date > "%s" AND modified_date < "%s"', $start_time, $end_time );
+				$where     .= $wpdb->prepare( ' AND modified_date > %s AND modified_date < %s', $start_time, $end_time );
 
 			} elseif ( '2-month' === $get_time ) {
 				$start_time = strtotime( '-2 month', $start_time );
@@ -517,7 +517,7 @@ if ( ! function_exists( 'ual_user_activity_function' ) ) :
 
 				$start_time = gmdate( 'Y-m-d', $start_time );
 				$end_time   = gmdate( 'Y-m-d', $end_time );
-				$where     .= $wpdb->prepare( ' AND modified_date > "%s" AND modified_date < "%s"', $start_time, $end_time );
+				$where     .= $wpdb->prepare( ' AND modified_date > %s AND modified_date < %s', $start_time, $end_time );
 
 			} elseif ( '3-month' === $get_time ) {
 				$start_time = strtotime( '-3 month', $start_time );
@@ -525,7 +525,7 @@ if ( ! function_exists( 'ual_user_activity_function' ) ) :
 
 				$start_time = gmdate( 'Y-m-d', $start_time );
 				$end_time   = gmdate( 'Y-m-d', $end_time );
-				$where     .= $wpdb->prepare( ' AND modified_date > "%s" AND modified_date < "%s"', $start_time, $end_time );
+				$where     .= $wpdb->prepare( ' AND modified_date > %s AND modified_date < %s', $start_time, $end_time );
 
 			} elseif ( '6-month' === $get_time ) {
 				$start_time = strtotime( '-6 month', $start_time );
@@ -533,7 +533,7 @@ if ( ! function_exists( 'ual_user_activity_function' ) ) :
 
 				$start_time = gmdate( 'Y-m-d', $start_time );
 				$end_time   = gmdate( 'Y-m-d', $end_time );
-				$where     .= $wpdb->prepare( ' AND modified_date > "%s" AND modified_date < "%s"', $start_time, $end_time );
+				$where     .= $wpdb->prepare( ' AND modified_date > %s AND modified_date < %s', $start_time, $end_time );
 
 			} elseif ( 'this-year' === $get_time ) {
 				$start_time = gmdate( 'Y-01-01' );
@@ -544,7 +544,7 @@ if ( ! function_exists( 'ual_user_activity_function' ) ) :
 
 				$start_time = gmdate( 'Y-m-d', $start_time );
 				$end_time   = gmdate( 'Y-m-d', $end_time );
-				$where     .= $wpdb->prepare( ' AND modified_date > "%s" AND modified_date < "%s"', $start_time, $end_time );
+				$where     .= $wpdb->prepare( ' AND modified_date > %s AND modified_date < %s', $start_time, $end_time );
 			} elseif ( 'last-year' === $get_time ) {
 
 				$start_time = gmdate( 'Y-01-01' );
@@ -557,7 +557,7 @@ if ( ! function_exists( 'ual_user_activity_function' ) ) :
 
 				$start_time = gmdate( 'Y-m-d', $start_time );
 				$end_time   = gmdate( 'Y-m-d', $end_time );
-				$where     .= $wpdb->prepare( ' AND modified_date > "%s" AND modified_date < "%s"', $start_time, $end_time );
+				$where     .= $wpdb->prepare( ' AND modified_date > %s AND modified_date < %s', $start_time, $end_time );
 			} elseif ( 'custom' === $get_time ) {
 				$custom_start_date = isset( $_REQUEST['start_date'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['start_date'] ) ) : '';
 				$custom_end_date   = isset( $_REQUEST['end_date'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['end_date'] ) ) : '';
@@ -570,23 +570,22 @@ if ( ! function_exists( 'ual_user_activity_function' ) ) :
 						$start_time = strtotime( '-1 day', $start_time );
 					}
 					$start_time = gmdate( 'Y-m-d H:i:s', $start_time );
-					$where     .= $wpdb->prepare( ' AND modified_date >= "%s"', $start_time );
+					$where     .= $wpdb->prepare( ' AND modified_date >= %s', $start_time );
 				}
 				if ( isset( $custom_end_date ) && '' != $custom_end_date ) {
 					$end_time = strtotime( $custom_end_date . ' 23:59:59' );
 					$end_time = strtotime( '+1 day', $end_time );
 					$end_time = gmdate( 'Y-m-d H:i:s', $end_time );
-					$where   .= $wpdb->prepare( ' AND modified_date < "%s"', $end_time );
+					$where   .= $wpdb->prepare( ' AND modified_date < %s', $end_time );
 				}
 			}
 		}
 
 		// query for display all the user activity data start.
-		if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'" ) ) {
-			$select_query      = "SELECT * from $table_name $where ORDER BY modified_date desc LIMIT $offset,$recordperpage";
-			$get_data          = $wpdb->get_results( $select_query );
-			$total_items_query = "SELECT count(*) FROM $table_name $where";
-			$total_items       = $wpdb->get_var( $total_items_query, 0, 0 );
+		if ( $wpdb->get_var( "SHOW TABLES LIKE '{$wpdb->prefix}ualp_user_activity'" ) ) {
+			$select_query = $wpdb->prepare( "SELECT * from {$wpdb->prefix}ualp_user_activity $where ORDER BY modified_date desc LIMIT %d,%d", $offset, $recordperpage );
+			$get_data     = $wpdb->get_results( $select_query );
+			$total_items  = $wpdb->get_var( "SELECT count(*) FROM {$wpdb->prefix}ualp_user_activity $where", 0, 0 );
 		}
 
 		// query for display all the user activity data end.
@@ -604,7 +603,7 @@ if ( ! function_exists( 'ual_user_activity_function' ) ) :
 		<div class="wrap">
 			<h2><?php esc_html_e( 'User Activity Log', 'user-activity-log' ); ?></h2>
 			<?php $query_string = isset( $_SERVER['QUERY_STRING'] ) ? esc_url_raw( wp_unslash( $_SERVER['QUERY_STRING'] ) ) : ''; ?>
-			<form method="POST" action="<?php echo esc_attr( admin_url( 'admin.php' ) ) . '?' . esc_attr( $query_string ); ?>" class="frm-user-activity">
+			<form method="POST" action="<?php echo esc_url( admin_url( 'admin.php' ) ) . '?' . esc_attr( $query_string ); ?>" class="frm-user-activity">
 				<div class="tablenav top">
 					<div class="wp-filter">
 						<div class="ual-filter-cover">						
@@ -720,8 +719,7 @@ if ( ! function_exists( 'ual_user_activity_function' ) ) :
 								<select name="user" class="sol-dropdown">
 									<option selected value="0"><?php esc_html_e( 'All Users', 'user-activity-log' ); ?></option>
 									<?php
-									$username_query = "SELECT distinct user_name from $table_name";
-									$get_username   = $wpdb->get_results( $username_query );
+									$get_username = $wpdb->get_results( "SELECT distinct user_name from {$wpdb->prefix}ualp_user_activity" );
 									foreach ( $get_username as $username ) {
 										$user_name = $username->user_name;
 										if ( '' != $user_name ) {
@@ -740,8 +738,7 @@ if ( ! function_exists( 'ual_user_activity_function' ) ) :
 								<select name="post_type">
 									<option selected value="0"><?php esc_html_e( 'All Types', 'user-activity-log' ); ?></option>
 									<?php
-									$object_type_query = "SELECT distinct object_type from $table_name";
-									$get_type          = $wpdb->get_results( $object_type_query );
+									$get_type = $wpdb->get_results( "SELECT distinct object_type from {$wpdb->prefix}ualp_user_activity" );
 									foreach ( $get_type as $type ) {
 										$object_type = $type->object_type;
 										if ( '' != $object_type ) {
@@ -864,7 +861,7 @@ if ( ! function_exists( 'ual_user_activity_function' ) ) :
 							<th scope="col"><?php esc_html_e( 'Type', 'user-activity-log' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Action', 'user-activity-log' ); ?></th>
 							<th scope="col" colspan="2"><?php esc_html_e( 'Description', 'user-activity-log' ); ?></th>
-							<th scope="col"></th>
+							<th scope="col" colspan="2"></th>
 						</tr>
 					</thead>
 					<tfoot>
@@ -878,7 +875,7 @@ if ( ! function_exists( 'ual_user_activity_function' ) ) :
 							<th scope="col"><?php esc_html_e( 'Type', 'user-activity-log' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Action', 'user-activity-log' ); ?></th>
 							<th scope="col" colspan="2"><?php esc_html_e( 'Description', 'user-activity-log' ); ?></th>
-							<th scope="col"></th>
+							<th scope="col" colspan="2"></th>
 						</tr>
 					</tfoot>
 					<tbody>
@@ -937,7 +934,7 @@ if ( ! function_exists( 'ual_user_activity_function' ) ) :
 										}
 										?>
 									</td>
-									<td class="ual-pro-feature">
+									<td class="ual-pro-feature" colspan="2">
 										<span class="dashicons dashicons-visibility ual-view-log"></span>
 										<a title="Unfavorite" class="ual-favorite" href="#"></a>
 										<a title="Delete" class="ual-delete-log" href="#">
@@ -988,7 +985,7 @@ if ( ! function_exists( 'ual_user_activity_function' ) ) :
 									" href="<?php echo esc_attr( admin_url( 'admin.php?page=user_action_log' ) ) . '&paged=' . esc_attr( $prev_page ) . '&dateshow=' . esc_attr( $dateshow ) . '&showip=' . esc_attr( $ipaddress ) . '&userrole=' . esc_attr( $us_role ) . '&username=' . esc_attr( $us_name ) . '&type=' . esc_attr( $ob_type ) . '&txtsearch=' . esc_attr( $searchtxt ); ?>" title="<?php esc_attr_e( 'Go to the previous page', 'user-activity-log' ); ?>">&lsaquo;</a>
 								<?php } ?>
 								<span class="paging-input">
-									<span class="current-page" title="<?php esc_attr_e( 'Current page', 'user-activity-log' ); ?>"><?php echo esc_attr( $paged ); ?></span> <?php esc_attr_e( 'of', 'user-activity-log' ); ?>
+									<input class="current-page" type="text" size="1" value="<?php echo esc_attr( $paged ); ?>" name="paged" title="<?php esc_attr_e( 'Current page', 'user-activity-log' ); ?>"> <?php esc_attr_e( 'of', 'user-activity-log' ); ?>
 									<span class="total-pages"><?php echo esc_attr( $total_pages ); ?></span>
 								</span>
 								<a class="next-page 
@@ -1196,7 +1193,7 @@ if ( ! function_exists( 'user_activity_log_delete_log' ) ) {
 		$getlogspan = get_option( 'ualpKeepLogsDay' );
 		$table_name = $wpdb->prefix . 'ualp_user_activity';
 		if ( ! empty( $getlogspan ) ) {
-			$wpdb->query( "DELETE FROM $table_name WHERE modified_date < NOW() - INTERVAL $getlogspan DAY" );
+			$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->prefix}ualp_user_activity WHERE modified_date < NOW() - INTERVAL %d DAY", $getlogspan ) );
 		}
 	}
 }
@@ -1236,9 +1233,6 @@ if ( ! function_exists( 'ual_activated_plugin' ) ) {
 			if ( 'yes' == $ual_is_optin || 'no' == $ual_is_optin ) {
 				wp_safe_redirect( admin_url( 'admin.php?page=user_action_log' ) );
 				exit();
-			} else {
-				wp_safe_redirect( admin_url( 'admin.php?page=user_welcome_page' ) );
-				exit();
 			}
 		}
 
@@ -1250,8 +1244,9 @@ if ( ! function_exists( 'ual_export_log' ) ) {
 	 * Export Log.
 	 */
 	function ual_export_log() {
-		if ( is_admin() ) {
-			if ( isset( $_GET['export'] ) && 'user_logs' == $_GET['export'] && isset( $_GET['export-nonce'] ) && '' != $_GET['export-nonce'] ) {
+		global $wpdb;
+		if ( is_admin() && is_user_logged_in() && current_user_can( 'administrator' ) ) {
+			if ( isset( $_GET['export'] ) && 'user_logs' == $_GET['export'] && isset( $_GET['export-nonce'] ) && wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['export-nonce'] ) ), 'export-action' ) ) {
 				$userrole  = '';
 				$username  = '';
 				$type      = '';
@@ -1271,6 +1266,7 @@ if ( ! function_exists( 'ual_export_log' ) ) {
 
 				if ( isset( $_GET['txtsearch'] ) ) {
 					$search = sanitize_text_field( wp_unslash( $_GET['txtsearch'] ) );
+					$search = $wpdb->esc_like( $search );
 				}
 				if ( isset( $_GET['dateshow'] ) ) {
 					$dateshow = sanitize_text_field( wp_unslash( $_GET['dateshow'] ) );
@@ -1304,100 +1300,23 @@ if ( ! function_exists( 'ual_export_user_log' ) ) {
 		$header = array();
 		$where  = ' where 1 = 1';
 		if ( isset( $userrole ) && '' != $userrole ) {
-			$where .= ' AND user_role LIKE "%%' . $userrole . '%%"';
+			$userrole = esc_sql( $userrole );
+			$where   .= " AND user_role = '$userrole'";
 		}
 		if ( isset( $username ) && '' != $username ) {
-			$where .= " AND user_name like '$username'";
+			$username = esc_sql( $username );
+			$where   .= " AND user_name = '$username'";
 		}
 		if ( isset( $type ) && '' != $type ) {
-			$where .= " AND object_type like '$type'";
+			$type   = esc_sql( $type );
+			$where .= " AND object_type = '$type'";
 		}
 		if ( isset( $showip ) && '' != $showip ) {
+			$showip = esc_sql( $showip );
 			$where .= " AND ip_address = '$showip'";
 		}
-		if ( isset( $time ) && '' != $time ) {
-			$current_time = current_time( 'timestamp' );
-
-			$start_time = mktime( 0, 0, 0, gmdate( 'm', $current_time ), gmdate( 'd', $current_time ), gmdate( 'Y', $current_time ) );
-			$end_time   = mktime( 23, 59, 59, gmdate( 'm', $current_time ), gmdate( 'd', $current_time ), gmdate( 'Y', $current_time ) );
-
-			if ( 'today' === $time ) {
-				$start_time = $current_time;
-				$start_time = strtotime( 'today' );
-				$end_time   = strtotime( '+1 day', $current_time );
-			} elseif ( 'yesterday' === $time ) {
-				$start_time = strtotime( 'yesterday', $start_time );
-				$end_time   = $current_time;
-			} elseif ( 'week' === $time ) {
-				$start_time = strtotime( '-1 week', $start_time );
-				$end_time   = strtotime( '+1 day', $current_time );
-			} elseif ( 'this-month' === $time ) {
-				$start_time = gmdate( 'Y-m-01' );
-				$start_time = strtotime( $start_time );
-
-				$end_time = gmdate( 'Y-m-31' );
-				$end_time = strtotime( $end_time );
-			} elseif ( 'month' === $time ) {
-				$start_time = strtotime( '-1 month', $start_time );
-				$end_time   = strtotime( '+1 day', $current_time );
-			} elseif ( '2-month' === $time ) {
-				$start_time = strtotime( '-2 month', $start_time );
-				$end_time   = strtotime( '+1 day', $current_time );
-			} elseif ( '3-month' === $time ) {
-				$start_time = strtotime( '-3 month', $start_time );
-				$end_time   = strtotime( '+1 day', $current_time );
-			} elseif ( '6-month' === $time ) {
-				$start_time = strtotime( '-6 month', $start_time );
-				$end_time   = strtotime( '+1 day', $current_time );
-			} elseif ( 'this-year' === $time ) {
-				$start_time = gmdate( 'Y-01-01' );
-				$start_time = strtotime( $start_time );
-
-				$end_time = gmdate( 'Y-12-31' );
-				$end_time = strtotime( $end_time );
-			} elseif ( 'last-year' === $time ) {
-				$start_time = gmdate( 'Y-01-01' );
-				$start_time = strtotime( $start_time );
-				$start_time = strtotime( '-1 year', $start_time );
-
-				$end_time = gmdate( 'Y-12-31' );
-				$end_time = strtotime( $end_time );
-				$end_time = strtotime( '-1 year', $end_time );
-			} elseif ( 'custom' === $time ) {
-				if ( isset( $start_date ) && '' != $start_date ) {
-					$custom_start_date = $start_date;
-					$start_time        = strtotime( $custom_start_date . ' 23:59:59' );
-					if ( gmdate( 'Y-m-d H:i:s', $start_time ) > gmdate( 'Y-m-d' ) ) {
-						$start_time = strtotime( $custom_start_date . ' 23:59:59' );
-					} else {
-						$start_time = strtotime( '-1 day', $start_time );
-					}
-				}
-				if ( isset( $end_date ) && '' != $end_date ) {
-					$end_time = strtotime( $end_date . ' 23:59:59' );
-					$end_time = strtotime( '+1 day', $end_time );
-				}
-			}
-
-			if ( '' != $start_time ) {
-				$start_time = gmdate( 'Y-m-d H:i:s', $start_time );
-			}
-			if ( '' != $end_time ) {
-				$end_time = gmdate( 'Y-m-d H:i:s', $end_time );
-			}
-			if ( '' != $start_time ) {
-				if ( 'custom' === $time ) {
-					$where .= " AND modified_date >= '$start_time' ";
-				} else {
-					$where .= " AND modified_date > '$start_time' ";
-				}
-			}
-			if ( '' != $end_time ) {
-				$where .= " AND modified_date < '$end_time'";
-			}
-		}
 		if ( isset( $search ) && '' != $search ) {
-			$where .= " AND user_name like '$search' or user_role like '$search' or object_type like '$search' or action like '$search'";
+			$where .= " AND user_name like '%$search%' or user_role like '%$search%' or object_type like '%$search%' or action like '%$search%'";
 		}
 		if ( isset( $dateshow ) && in_array( $dateshow, array( 'today', 'yesterday', 'week', 'this-month', 'month', '2-month', '3-month', '6-month', 'this-year', 'last-year', 'custom' ) ) ) {
 			$get_time     = $dateshow;
@@ -1410,7 +1329,7 @@ if ( ! function_exists( 'ual_export_user_log' ) ) {
 
 				$start_time = gmdate( 'Y-m-d', $start_time );
 				$end_time   = gmdate( 'Y-m-d', $end_time );
-				$where     .= $wpdb->prepare( ' AND modified_date > "%s" AND modified_date < "%s"', $start_time, $end_time );
+				$where     .= $wpdb->prepare( ' AND modified_date > %s AND modified_date < %s', $start_time, $end_time );
 
 			} elseif ( 'yesterday' === $get_time ) {
 				$start_time = strtotime( 'yesterday', $start_time );
@@ -1418,7 +1337,7 @@ if ( ! function_exists( 'ual_export_user_log' ) ) {
 
 				$start_time = gmdate( 'Y-m-d', $start_time );
 				$end_time   = gmdate( 'Y-m-d', $end_time );
-				$where     .= $wpdb->prepare( ' AND modified_date > "%s" AND modified_date < "%s"', $start_time, $end_time );
+				$where     .= $wpdb->prepare( ' AND modified_date > %s AND modified_date < %s', $start_time, $end_time );
 
 			} elseif ( 'week' === $get_time ) {
 				$start_time = strtotime( '-1 week', $start_time );
@@ -1426,7 +1345,7 @@ if ( ! function_exists( 'ual_export_user_log' ) ) {
 
 				$start_time = gmdate( 'Y-m-d', $start_time );
 				$end_time   = gmdate( 'Y-m-d', $end_time );
-				$where     .= $wpdb->prepare( ' AND modified_date > "%s" AND modified_date < "%s"', $start_time, $end_time );
+				$where     .= $wpdb->prepare( ' AND modified_date > %s AND modified_date < %s', $start_time, $end_time );
 
 			} elseif ( 'this-month' === $get_time ) {
 				$start_time = gmdate( 'Y-m-01' );
@@ -1437,7 +1356,7 @@ if ( ! function_exists( 'ual_export_user_log' ) ) {
 
 				$start_time = gmdate( 'Y-m-d', $start_time );
 				$end_time   = gmdate( 'Y-m-d', $end_time );
-				$where     .= $wpdb->prepare( ' AND modified_date > "%s" AND modified_date < "%s"', $start_time, $end_time );
+				$where     .= $wpdb->prepare( ' AND modified_date > %s AND modified_date < %s', $start_time, $end_time );
 
 			} elseif ( 'month' === $get_time ) {
 				$start_time = strtotime( '-1 month', $start_time );
@@ -1445,7 +1364,7 @@ if ( ! function_exists( 'ual_export_user_log' ) ) {
 
 				$start_time = gmdate( 'Y-m-d', $start_time );
 				$end_time   = gmdate( 'Y-m-d', $end_time );
-				$where     .= $wpdb->prepare( ' AND modified_date > "%s" AND modified_date < "%s"', $start_time, $end_time );
+				$where     .= $wpdb->prepare( ' AND modified_date > %s AND modified_date < %s', $start_time, $end_time );
 
 			} elseif ( '2-month' === $get_time ) {
 				$start_time = strtotime( '-2 month', $start_time );
@@ -1453,7 +1372,7 @@ if ( ! function_exists( 'ual_export_user_log' ) ) {
 
 				$start_time = gmdate( 'Y-m-d', $start_time );
 				$end_time   = gmdate( 'Y-m-d', $end_time );
-				$where     .= $wpdb->prepare( ' AND modified_date > "%s" AND modified_date < "%s"', $start_time, $end_time );
+				$where     .= $wpdb->prepare( ' AND modified_date > %s AND modified_date < %s', $start_time, $end_time );
 
 			} elseif ( '3-month' === $get_time ) {
 				$start_time = strtotime( '-3 month', $start_time );
@@ -1461,7 +1380,7 @@ if ( ! function_exists( 'ual_export_user_log' ) ) {
 
 				$start_time = gmdate( 'Y-m-d', $start_time );
 				$end_time   = gmdate( 'Y-m-d', $end_time );
-				$where     .= $wpdb->prepare( ' AND modified_date > "%s" AND modified_date < "%s"', $start_time, $end_time );
+				$where     .= $wpdb->prepare( ' AND modified_date > %s AND modified_date < %s', $start_time, $end_time );
 
 			} elseif ( '6-month' === $get_time ) {
 				$start_time = strtotime( '-6 month', $start_time );
@@ -1469,7 +1388,7 @@ if ( ! function_exists( 'ual_export_user_log' ) ) {
 
 				$start_time = gmdate( 'Y-m-d', $start_time );
 				$end_time   = gmdate( 'Y-m-d', $end_time );
-				$where     .= $wpdb->prepare( ' AND modified_date > "%s" AND modified_date < "%s"', $start_time, $end_time );
+				$where     .= $wpdb->prepare( ' AND modified_date > %s AND modified_date < %s', $start_time, $end_time );
 
 			} elseif ( 'this-year' === $get_time ) {
 				$start_time = gmdate( 'Y-01-01' );
@@ -1480,7 +1399,7 @@ if ( ! function_exists( 'ual_export_user_log' ) ) {
 
 				$start_time = gmdate( 'Y-m-d', $start_time );
 				$end_time   = gmdate( 'Y-m-d', $end_time );
-				$where     .= $wpdb->prepare( ' AND modified_date > "%s" AND modified_date < "%s"', $start_time, $end_time );
+				$where     .= $wpdb->prepare( ' AND modified_date > %s AND modified_date < %s', $start_time, $end_time );
 			} elseif ( 'last-year' === $get_time ) {
 
 				$start_time = gmdate( 'Y-01-01' );
@@ -1493,31 +1412,10 @@ if ( ! function_exists( 'ual_export_user_log' ) ) {
 
 				$start_time = gmdate( 'Y-m-d', $start_time );
 				$end_time   = gmdate( 'Y-m-d', $end_time );
-				$where     .= $wpdb->prepare( ' AND modified_date > "%s" AND modified_date < "%s"', $start_time, $end_time );
-			} elseif ( 'custom' === $get_time ) {
-				$custom_start_date = isset( $_REQUEST['start_date'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['start_date'] ) ) : '';
-				$custom_end_date   = isset( $_REQUEST['end_date'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['end_date'] ) ) : '';
-				if ( isset( $custom_start_date ) && '' != $custom_start_date ) {
-					$start_time = strtotime( $custom_start_date . ' 23:59:59' );
-					if ( gmdate( 'Y-m-d H:i:s', $start_time ) > gmdate( 'Y-m-d H:i:s' ) ) {
-						$start_time = strtotime( $custom_start_date . ' 23:59:59' );
-					} else {
-						$start_time = strtotime( '-1 day', $start_time );
-					}
-					$start_time = gmdate( 'Y-m-d H:i:s', $start_time );
-					$where     .= $wpdb->prepare( ' AND modified_date >= "%s"', $start_time );
-				}
-				if ( isset( $custom_end_date ) && '' != $custom_end_date ) {
-					$end_time = strtotime( $custom_end_date . ' 23:59:59' );
-					$end_time = strtotime( '+1 day', $end_time );
-					$end_time = gmdate( 'Y-m-d H:i:s', $end_time );
-					$where   .= $wpdb->prepare( ' AND modified_date < "%s"', $end_time );
-				}
+				$where     .= $wpdb->prepare( ' AND modified_date > %s AND modified_date < %s', $start_time, $end_time );
 			}
 		}
-		$table_name       = $wpdb->prefix . 'ualp_user_activity';
-		$get_log_query    = 'SELECT * FROM ' . $table_name . " $where ORDER BY modified_date desc";
-		$result_log_query = $wpdb->get_results( $get_log_query );
+		$result_log_query = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}ualp_user_activity %1s ORDER BY modified_date desc", $where ) );
 		$data_content     = array();
 		$c                = 0;
 		$date_format      = get_option( 'date_format' );
@@ -1632,7 +1530,7 @@ function ual_json_output( $file_name, $content ) {
 	header( 'Content-type: application/json' );
 	header( 'Content-Disposition: attachment; filename="' . basename( $file_name ) . '"' );
 	header( 'Content-Length: ' . $wp_filesystem->size( $file_name ) );
-	echo $wp_filesystem->get_contents( $file_name );
+	echo wp_kses( $wp_filesystem->get_contents( $file_name ), args_kses() );
 }
 if ( ! function_exists( 'ual_csv_output' ) ) {
 	/**
@@ -1652,7 +1550,7 @@ if ( ! function_exists( 'ual_csv_output' ) ) {
 			$data = ual_unparse( $data, $fields, null, null, $delimiter );
 			header( 'Content-type: application/csv' );
 			header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
-			echo $data;
+			echo wp_kses( $data, args_kses() );
 		}
 		return $data;
 	}

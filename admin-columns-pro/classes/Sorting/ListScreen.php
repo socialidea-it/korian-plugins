@@ -2,13 +2,12 @@
 
 namespace ACP\Sorting;
 
-interface ListScreen {
+/**
+ * @deprecated NEWVERSION
+ */
+interface ListScreen
+{
 
-	/**
-	 * @param AbstractModel $model
-	 *
-	 * @return Strategy
-	 */
-	public function sorting( $model );
+    public function sorting(AbstractModel $model): Strategy;
 
 }

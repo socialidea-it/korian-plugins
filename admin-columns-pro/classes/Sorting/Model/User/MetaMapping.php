@@ -2,31 +2,29 @@
 
 namespace ACP\Sorting\Model\User;
 
-class MetaMapping extends Meta {
+use ACP\Sorting\Model\SqlOrderByFactory;
+use ACP\Sorting\Type\Order;
 
-	/**
-	 * @var array
-	 */
-	protected $sorted_fields;
+class MetaMapping extends Meta
+{
 
-	/**
-	 * @param string $meta_key
-	 * @param array  $sorted_fields
-	 */
-	public function __construct( $meta_key, $sorted_fields ) {
-		parent::__construct( $meta_key );
+    protected $fields;
 
-		$this->sorted_fields = $sorted_fields;
-	}
+    public function __construct(string $meta_key, array $fields)
+    {
+        parent::__construct($meta_key);
 
-	/**
-	 * @return string
-	 */
-	protected function get_order_by() {
-		global $wpdb;
-		$fields = implode( "','", array_map( 'esc_sql', $this->sorted_fields ) );
+        $this->fields = $fields;
+    }
 
-		return sprintf( "ORDER BY FIELD( acsort_usermeta.meta_value, '%s' ) %s, {$wpdb->users}.ID", $fields, $this->get_order() );
-	}
+    protected function get_order_by(Order $order): string
+    {
+        return SqlOrderByFactory::create_with_field(
+            "acsort_usermeta.meta_value",
+            $this->fields,
+            (string)$order,
+            $this->data_type
+        );
+    }
 
 }

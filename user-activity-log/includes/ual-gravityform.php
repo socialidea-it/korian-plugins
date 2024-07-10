@@ -232,7 +232,7 @@ if ( ! function_exists( 'ualgform_delete_entries' ) ) {
 	function ualgform_delete_entries( $form_id, $status ) {
 		$form       = GFFormsModel::get_form_meta( $form_id );
 		$form_title = $form['title'];
-		$action     = '';
+		$action     = 'deleted';
 		$post_id    = '';
 		$obj_type   = 'Gravity Form';
 		$post_title = 'Entry deleted from ' . $form_title;
@@ -541,11 +541,11 @@ if ( ! function_exists( 'ualgform_post_lead_deleted' ) ) {
 		$action     = 'deleted';
 		$obj_type   = 'Gravity Form';
 		$post_id    = '';
-		$post_title = "Entry '$lead[1]' from '" . $form['title'] . "' " . $action;
+		$post_title = 'Entry ' . $lead['id'] . ' from ' . $form['title'] . ' ' . $action;
 		ual_get_activity_function( $action, $obj_type, $post_id, $post_title );
 	}
 }
-add_action( 'gform_delete_lead', 'ualgform_post_lead_deleted', 10, 1 );
+add_action( 'gform_delete_entry', 'ualgform_post_lead_deleted', 10, 1 );
 
 if ( ! function_exists( 'ualgform_update_status' ) ) {
 	/**

@@ -2,68 +2,58 @@
 
 namespace ACP\Sorting\Model\User;
 
-use ACP\Sorting\AbstractModel;
+use ACP\Query\Bindings;
+use ACP\Sorting\Model\QueryBindings;
+use ACP\Sorting\Model\SqlOrderByFactory;
 use ACP\Sorting\Type\CastType;
 use ACP\Sorting\Type\DataType;
-use WP_User_Query;
+use ACP\Sorting\Type\Order;
 
-class Meta extends AbstractModel {
+class Meta implements QueryBindings
+{
 
-	/**
-	 * @var string
-	 */
-	protected $meta_key;
+    protected $meta_key;
 
-	/**
-	 * @param string        $meta_key
-	 * @param DataType|null $data_type
-	 */
-	public function __construct( $meta_key, DataType $data_type = null ) {
-		parent::__construct( $data_type );
+    protected $data_type;
 
-		$this->meta_key = $meta_key;
-	}
+    public function __construct(string $meta_key, DataType $data_type = null)
+    {
+        $this->meta_key = $meta_key;
+        $this->data_type = $data_type ?: new DataType(DataType::STRING);
+    }
 
-	public function get_sorting_vars() {
-		add_action( 'pre_user_query', [ $this, 'pre_user_query_callback' ] );
+    public function create_query_bindings(Order $order): Bindings
+    {
+        global $wpdb;
 
-		return [];
-	}
+        $bindings = new Bindings();
 
-	public function pre_user_query_callback( WP_User_Query $query ) {
-		global $wpdb;
+        $bindings->join(
+            $wpdb->prepare(
+                "
+			    LEFT JOIN $wpdb->usermeta AS acsort_usermeta ON $wpdb->users.ID = acsort_usermeta.user_id
+				    AND acsort_usermeta.meta_key = %s
+			    ",
+                $this->meta_key
+            )
+        );
+        $bindings->group_by("$wpdb->users.ID");
+        $bindings->order_by(
+            $this->get_order_by($order)
+        );
 
-		$join_type = $this->show_empty
-			? 'LEFT'
-			: 'INNER';
+        return $bindings;
+    }
 
-		$from = $wpdb->prepare( "
-			{$join_type} JOIN {$wpdb->usermeta} AS acsort_usermeta 
-				ON {$wpdb->users}.ID = acsort_usermeta.user_id
-				AND acsort_usermeta.meta_key = %s
-		", $this->meta_key );
-
-		if ( ! $this->show_empty ) {
-			$from .= " AND acsort_usermeta.meta_value <> ''";
-		}
-
-		$query->query_from .= $from;
-		$query->query_orderby = $this->get_order_by();
-
-		remove_action( 'pre_user_query', [ $this, __FUNCTION__ ] );
-	}
-
-	/**
-	 * @return string
-	 */
-	protected function get_order_by() {
-		global $wpdb;
-
-		$order = esc_sql( $this->get_order() );
-		$cast_type = CastType::create_from_data_type( $this->data_type )->get_value();
-
-		return "ORDER BY CAST( acsort_usermeta.meta_value AS {$cast_type} ) $order, {$wpdb->users}.ID $order";
-
-	}
+    protected function get_order_by(Order $order): string
+    {
+        return SqlOrderByFactory::create(
+            "acsort_usermeta.`meta_value`",
+            (string)$order,
+            [
+                'cast_type' => (string)CastType::create_from_data_type($this->data_type),
+            ]
+        );
+    }
 
 }

@@ -3,49 +3,44 @@
 namespace ACP\Admin\PageFactory;
 
 use AC;
-use AC\Admin\MenuFactoryInterface;
 use AC\Admin\PageFactoryInterface;
 use AC\Asset\Location;
 use AC\IntegrationRepository;
-use ACP\Access\PermissionsStorage;
+use ACP\Admin\MenuFactory;
 use ACP\Admin\Page;
+use ACP\Settings\General\IntegrationStatus;
 
-class Addons implements PageFactoryInterface {
+class Addons implements PageFactoryInterface
+{
 
-	/**
-	 * @var Location\Absolute
-	 */
-	private $location;
+    private $location;
 
-	/**
-	 * @var IntegrationRepository
-	 */
-	private $integrations;
+    private $integrations;
 
-	/**
-	 * @var PermissionsStorage
-	 */
-	private $permissions_storage;
+    private $menu_factory;
 
-	/**
-	 * @var MenuFactoryInterface
-	 */
-	private $menu_factory;
+    private $integration_status;
 
-	public function __construct( Location\Absolute $location, IntegrationRepository $integrations, PermissionsStorage $permissions_storage, MenuFactoryInterface $menu_factory ) {
-		$this->location = $location;
-		$this->integrations = $integrations;
-		$this->permissions_storage = $permissions_storage;
-		$this->menu_factory = $menu_factory;
-	}
+    public function __construct(
+        Location\Absolute $location,
+        IntegrationRepository $integrations,
+        MenuFactory $menu_factory,
+        IntegrationStatus $integration_status
+    ) {
+        $this->location = $location;
+        $this->integrations = $integrations;
+        $this->menu_factory = $menu_factory;
+        $this->integration_status = $integration_status;
+    }
 
-	public function create() {
-		return new Page\Addons(
-			$this->location,
-			$this->integrations,
-			$this->permissions_storage,
-			new AC\Admin\View\Menu( $this->menu_factory->create( 'addons' ) )
-		);
-	}
+    public function create(): Page\Addons
+    {
+        return new Page\Addons(
+            $this->integration_status,
+            $this->location,
+            $this->integrations,
+            new AC\Admin\View\Menu($this->menu_factory->create('addons'))
+        );
+    }
 
 }

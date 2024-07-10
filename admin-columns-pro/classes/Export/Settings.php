@@ -4,9 +4,9 @@ namespace ACP\Export;
 
 use AC;
 use AC\Asset\Style;
-use AC\Registrable;
+use AC\Registerable;
 
-class Settings implements Registrable {
+class Settings implements Registerable {
 
 	/**
 	 * @var AC\Asset\Location
@@ -17,7 +17,8 @@ class Settings implements Registrable {
 		$this->location = $location;
 	}
 
-	public function register() {
+	public function register(): void
+    {
 		add_action( 'ac/column/settings', [ $this, 'column_settings' ], 9 );
 		add_action( 'ac/admin_scripts/columns', [ $this, 'admin_scripts' ] );
 	}
@@ -34,7 +35,7 @@ class Settings implements Registrable {
 			return false;
 		}
 
-		if ( $column instanceof Exportable && ! $column->export()->is_active() ) {
+		if ( $column instanceof Exportable && ! $column->export() ) {
 			return false;
 		}
 

@@ -14,7 +14,8 @@ class V5300 extends Update {
 		parent::__construct( new Version( '5.3.0' ) );
 	}
 
-	public function apply_update() {
+	public function apply_update(): void
+    {
 		$this->create_table();
 		$this->migrate_bookmarks();
 	}
@@ -43,7 +44,7 @@ class V5300 extends Update {
 				continue;
 			}
 
-			$value = unserialize( $row->meta_value );
+			$value = unserialize( $row->meta_value, [ 'allowed_classes' => false ] );
 
 			if ( empty( $value['segments'] ) ) {
 				continue;
@@ -54,7 +55,7 @@ class V5300 extends Update {
 					continue;
 				}
 
-				$data = unserialize( $segment_data['data'] );
+				$data = unserialize( $segment_data['data'], [ 'allowed_classes' => false ] );
 
 				if ( empty( $data ) ) {
 					continue;

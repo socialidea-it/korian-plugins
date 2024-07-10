@@ -78,14 +78,31 @@ if ( ! function_exists( 'ual_user_activity_setting_function' ) ) :
 			$paged = intval( $_GET['paged'] );
 		}
 		$offset = ( $paged - 1 ) * $recordperpage;
-		$where  = 'where 1=1';
 		if ( isset( $_GET['display'] ) && ! empty( $_GET['display'] ) ) {
 			$display = sanitize_text_field( wp_unslash( $_GET['display'] ) );
 		}
+		if ( 'users' == $display ) {
+			if ( function_exists( 'is_multisite' ) && is_multisite() ) {
+				$table_name = $wpdb->base_prefix . 'users';
+			} else {
+				$table_name = $wpdb->prefix . 'users';
+			}
+			$select_query      = $wpdb->prepare( 'SELECT * from %1s LIMIT %d,%d', $table_name, $offset, $recordperpage );
+			$total_items_query = $wpdb->prepare( 'SELECT count(*) FROM %1s', $table_name );
+		} else {
+			if ( function_exists( 'is_multisite' ) && is_multisite() ) {
+				$table_name = $wpdb->base_prefix . 'usermeta as um';
+			} else {
+				$table_name = $wpdb->prefix . 'usermeta as um';
+			}
+			$select_query      = $wpdb->prepare( "SELECT distinct um.meta_value from %1s WHERE um.meta_key='%1scapabilities' LIMIT %d,%d", $table_name, $wpdb->prefix, $offset, $recordperpage );
+			$total_items_query = $wpdb->prepare( "SELECT count(distinct um.meta_value) FROM %1susermeta as um WHERE um.meta_key='%1scapabilities'", $wpdb->base_prefix, $wpdb->prefix );
+		}
 		if ( isset( $_GET['txtsearch'] ) && ! empty( $_GET['txtsearch'] ) ) {
 			if ( 'users' == $display ) {
-				$search = sanitize_text_field( wp_unslash( $_GET['txtsearch'] ) );
-				$where .= " and user_login like '%$search%' or user_email like '%$search%' or display_name like '%$search%'";
+				$search            = sanitize_text_field( wp_unslash( $_GET['txtsearch'] ) );
+				$select_query      = $wpdb->prepare( "SELECT * from {$wpdb->base_prefix}users WHERE user_login like %s or user_email like %s or display_name like %s LIMIT %d,%d", '%' . $wpdb->esc_like( $search ) . '%', '%' . $wpdb->esc_like( $search ) . '%', '%' . $wpdb->esc_like( $search ) . '%', $offset, $recordperpage );
+				$total_items_query = $wpdb->prepare( "SELECT count(*) FROM {$wpdb->base_prefix}users WHERE user_login like %s or user_email like %s or display_name like %s", '%' . $wpdb->esc_like( $search ) . '%', '%' . $wpdb->esc_like( $search ) . '%', '%' . $wpdb->esc_like( $search ) . '%' );
 			}
 		}
 		if ( isset( $_POST['saveLogin'] ) && isset( $_POST['_wp_role_email_nonce'] ) && wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['_wp_role_email_nonce'] ) ), '_wp_role_email_action' ) ) {
@@ -125,26 +142,11 @@ if ( ! function_exists( 'ual_user_activity_setting_function' ) ) :
 		$get_user_data = '';
 		$get_data      = '';
 		if ( 'users' == $display ) {
-			if ( function_exists( 'is_multisite' ) && is_multisite() ) {
-				$table_name = $wpdb->base_prefix . 'users';
-			} else {
-				$table_name = $wpdb->prefix . 'users';
-			}
-			$select_query      = "SELECT * from $table_name $where LIMIT $offset,$recordperpage";
-			$get_user_data     = $wpdb->get_results( $select_query );
-			$total_items_query = "SELECT count(*) FROM $table_name $where";
-			$total_items       = $wpdb->get_var( $total_items_query, 0, 0 );
+			$get_user_data = $wpdb->get_results( $wpdb->prepare( "SELECT * from {$wpdb->base_prefix}users WHERE user_login like %s or user_email like %s or display_name like %s LIMIT %d,%d", '%' . $wpdb->esc_like( $search ) . '%', '%' . $wpdb->esc_like( $search ) . '%', '%' . $wpdb->esc_like( $search ) . '%', $offset, $recordperpage ) );
+			$total_items   = $wpdb->get_var( $wpdb->prepare( "SELECT count(*) FROM {$wpdb->base_prefix}users WHERE user_login like %s or user_email like %s or display_name like %s", '%' . $wpdb->esc_like( $search ) . '%', '%' . $wpdb->esc_like( $search ) . '%', '%' . $wpdb->esc_like( $search ) . '%' ), 0, 0 );
 		} else {
-			if ( function_exists( 'is_multisite' ) && is_multisite() ) {
-				$table_name = $wpdb->base_prefix . 'usermeta as um';
-			} else {
-				$table_name = $wpdb->prefix . 'usermeta as um';
-			}
-			$where            .= " and um.meta_key='" . $wpdb->prefix . "capabilities'";
-			$select_query      = "SELECT distinct um.meta_value from $table_name $where LIMIT $offset,$recordperpage";
-			$get_data          = $wpdb->get_results( $select_query );
-			$total_items_query = "SELECT count(distinct um.meta_value) FROM $table_name $where";
-			$total_items       = $wpdb->get_var( $total_items_query, 0, 0 );
+			$get_data    = $wpdb->get_results( $wpdb->prepare( "SELECT distinct um.meta_value from %1s WHERE um.meta_key='%1scapabilities' LIMIT %d,%d", $table_name, $wpdb->prefix, $offset, $recordperpage ) );
+			$total_items = $wpdb->get_var( $wpdb->prepare( "SELECT count(distinct um.meta_value) FROM %1susermeta as um WHERE um.meta_key='%1scapabilities'", $wpdb->base_prefix, $wpdb->prefix ), 0, 0 );
 		}
 
 		// query for pagination.
@@ -333,7 +335,7 @@ if ( ! function_exists( 'ual_user_activity_setting_function' ) ) :
 								}
 							} else {
 								echo '<tr class="no-items">';
-								echo '<td class="colspanchange" colspan="4">' . esc_html__( 'No record found.', 'user-activity-log' ) . '</td>';
+								echo '<td class="colspanchange" colspan="7">' . esc_html__( 'No record found.', 'user-activity-log' ) . '</td>';
 								echo '</tr>';
 							}
 							?>
@@ -682,8 +684,8 @@ if ( ! function_exists( 'ual_general_settings' ) ) {
 				// This nonce is not valid.
 				return false;
 			} else {
-				if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_nm'" ) ) {
-					$wpdb->query( 'TRUNCATE ' . $table_nm );
+				if ( $wpdb->get_var( "SHOW TABLES LIKE '{$wpdb->prefix}ualp_user_activity'" ) ) {
+					$wpdb->query( "TRUNCATE {$wpdb->prefix}ualp_user_activity" );
 					$class   = 'updated';
 					$message = esc_html__( 'All activities from the database has been deleted successfully.', 'user-activity-log' );
 					ual_admin_notice_message( $class, $message );
@@ -698,6 +700,11 @@ if ( ! function_exists( 'ual_general_settings' ) ) {
 				update_option( 'ualpAllowIp', '1' );
 			} else {
 				update_option( 'ualpAllowIp', '0' );
+			}
+			if ( isset( $_POST['ualIPtypes'] ) ) {
+				update_option( 'ualIPtypes', sanitize_text_field( wp_unslash( $_POST['ualIPtypes'] ) ) );
+			} else {
+				update_option( 'ualIPtypes', 'REMOTE_ADDR' );
 			}
 			if ( isset( $_POST['ualp_allow_stats_report_dashbord_widget'] ) ) {
 				update_option( 'ualp_allow_stats_report_dashbord_widget', '1' );
@@ -716,9 +723,13 @@ if ( ! function_exists( 'ual_general_settings' ) ) {
 			}
 			if ( isset( $_POST['login_failed_existing_user'] ) && ! empty( $_POST['login_failed_existing_user'] ) ) {
 				update_option( 'login_failed_existing_user', sanitize_text_field( wp_unslash( $_POST['login_failed_existing_user'] ) ) );
+			} else {
+				update_option( 'login_failed_existing_user', '0' );
 			}
 			if ( isset( $_POST['login_failed_non_existing_user'] ) && ! empty( $_POST['login_failed_non_existing_user'] ) ) {
 				update_option( 'login_failed_non_existing_user', sanitize_text_field( wp_unslash( $_POST['login_failed_non_existing_user'] ) ) );
+			} else {
+				update_option( 'login_failed_non_existing_user', '0' );
 			}
 
 			if ( ! empty( $time_ago ) ) {
@@ -736,6 +747,7 @@ if ( ! function_exists( 'ual_general_settings' ) ) {
 		}
 		$log_day                                 = get_option( 'ualpKeepLogsDay' );
 		$ual_allow_ip                            = get_option( 'ualpAllowIp' );
+		$ual_ip_types                            = get_option( 'ualIPtypes', 'REMOTE_ADDR' );
 		$ualp_allow_stats_report_dashbord_widget = get_option( 'ualp_allow_stats_report_dashbord_widget', true );
 		$ual_delete_data                         = get_option( 'ualDeleteData' );
 		$logs_failed_login                       = get_option( 'logs_failed_login' );
@@ -751,11 +763,23 @@ if ( ! function_exists( 'ual_general_settings' ) ) {
 					<p class="margin_bottom_30"><?php esc_html_e( 'There are some basic options for display User Action Log', 'user-activity-log' ); ?></p>
 					<table class="sol-email-table">
 						<tr>
-							<th><?php esc_html_e( 'Enable Ip Address For Log', 'user-activity-log' ); ?></th>
+							<th><?php esc_html_e( 'Enable IP Address For Log', 'user-activity-log' ); ?></th>
 							<td>
-								<input id="ualAllowIp" type="checkbox" value="1" <?php checked( '1', $ual_allow_ip ); ?> name="ualAllowIp">&nbsp;<label for="ualAllowIp"><?php esc_html_e( 'Allow Ip Address of users to log.', 'user-activity-log' ); ?></label>
+								<input id="ualAllowIp" type="checkbox" value="1" <?php checked( '1', $ual_allow_ip ); ?> name="ualAllowIp">&nbsp;<label for="ualAllowIp"><?php esc_html_e( 'Allow IP Address of users to log.', 'user-activity-log' ); ?></label>
 							</td>
 						</tr>
+						<?php if ( 1 == $ual_allow_ip ) { ?>
+							<tr class="ual_get_ips">
+								<th><?php esc_html_e( 'How does User Activity Log get IPs', 'user-activity-log' ); ?></th>
+								<td>
+									<input id="ualIPtypes-default" type="radio" value="REMOTE_ADDR" <?php checked( 'REMOTE_ADDR', $ual_ip_types ); ?> name="ualIPtypes">&nbsp;<label for="ualIPtypes-default"><?php esc_html_e( 'Let Plugin use the most secure method to get visitor IP addresses. Prevents spoofing and works with most sites. (Recommended)', 'user-activity-log' ); ?></label><br>
+									<input id="ualIPtypes-HTTP_X_FORWARDED_FOR" type="radio" value="HTTP_X_FORWARDED_FOR" <?php checked( 'HTTP_X_FORWARDED_FOR', $ual_ip_types ); ?> name="ualIPtypes">&nbsp;<label for="ualIPtypes-HTTP_X_FORWARDED_FOR"><?php esc_html_e( 'Use the X-Forwarded-For HTTP header. Only use if you have a front-end proxy or spoofing may result.', 'user-activity-log' ); ?></label><br>
+									<input id="ualIPtypes-HTTP_X_REAL_IP" type="radio" value="HTTP_X_REAL_IP" <?php checked( 'HTTP_X_REAL_IP', $ual_ip_types ); ?> name="ualIPtypes">&nbsp;<label for="ualIPtypes-HTTP_X_REAL_IP"><?php esc_html_e( 'Use the X-Real-IP HTTP header. Only use if you have a front-end proxy or spoofing may result.', 'user-activity-log' ); ?></label><br>
+									<div class="ual-left"><?php esc_html_e( 'Detected IP(s):', 'user-activity-log' ); ?> <span id="howGetIPs-preview-all"><strong><?php echo esc_html( ual_get_ip() ); ?></strong></span></div>
+									<div class="ual-left"><?php esc_html_e( 'Your IP with this setting:', 'user-activity-log' ); ?> <span id="howGetIPs-preview-single"><?php echo esc_html( ual_get_ip() ); ?></span></div>
+								</td>
+							</tr>
+						<?php } ?>
 						<tr>
 							<th><?php esc_html_e( 'Enable Stats Report on Dashboard Widget', 'user-activity-log' ); ?></th>
 							<td>
@@ -788,18 +812,18 @@ if ( ! function_exists( 'ual_general_settings' ) ) {
 								</select>
 							</td>
 						</tr>
-						<tr>
+						<tr class="no_of_failed_login">
 							<th><?php esc_html_e( 'Number of failed login for existing user', 'user-activity-log' ); ?></th>
 							<td>
 								<input type="number" step="1" min="0" placeholder="0" value="<?php echo esc_attr( $login_failed_existing_user ); ?>" name="login_failed_existing_user">
-								<p><?php esc_html_e( 'Number of login attempts to log. Enter 0 to log all failed login attempts.', 'user-activity-log' ); ?>.</p>
+								<p><?php esc_html_e( 'Number of login attempts to log. Enter 0 to log all failed login attempts.', 'user-activity-log' ); ?></p>
 							</td>
 						</tr>
-						<tr>
+						<tr class="no_of_failed_login">
 							<th><?php esc_html_e( 'Number of failed login for non existing user', 'user-activity-log' ); ?></th>
 							<td>
 								<input type="number" step="1" min="0" placeholder="0" value="<?php echo esc_attr( $login_failed_non_existing_user ); ?>" name="login_failed_non_existing_user">
-								<p><?php esc_html_e( 'Number of login attempts to log. Enter 0 to log all failed login attempts.', 'user-activity-log' ); ?>.</p>
+								<p><?php esc_html_e( 'Number of login attempts to log. Enter 0 to log all failed login attempts.', 'user-activity-log' ); ?></p>
 							</td>
 						</tr>
 						<tr>
@@ -843,7 +867,7 @@ if ( ! function_exists( 'ual_debug_settings' ) ) {
 					$table_name                   = $wpdb->prefix . 'ualp_user_activity';
 					$sql_table_size               = sprintf( 'SELECT table_name AS "table_name", round(((data_length + index_length) / 1024 / 1024), 2) "size_in_mb" FROM information_schema.TABLES WHERE table_schema = "%1$s" AND table_name IN ("%2$s");', DB_NAME, $table_name );
 					$ualp_table_size_result       = $wpdb->get_results( $sql_table_size );
-					$ualp_user_activity_row_table = (int) $wpdb->get_var( "select count(*) FROM {$table_name}" );
+					$ualp_user_activity_row_table = (int) $wpdb->get_var( "select count(*) FROM {$wpdb->prefix}ualp_user_activity" );
 
 					$ualp_table_size_result[0]->num_rows = $ualp_user_activity_row_table;
 

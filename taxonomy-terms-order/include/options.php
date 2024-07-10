@@ -4,7 +4,7 @@
     
     function to_plugin_options()
         {
-            $options = tto_get_settings();
+            $options = TTO_functions::get_settings();
             
             if (isset($_POST['to_form_submit']) &&  wp_verify_nonce($_POST['to_form_nonce'],'to_form_submit') )
                 {
@@ -24,7 +24,7 @@
                             
                                 <h2><?php _e( "General Settings", 'taxonomy-terms-order' ) ?></h2>
                                 
-                                <?php tto_info_box() ?>
+                                <?php TTO_functions::info_box() ?>
                                
                                 <form id="form_data" name="form" method="post">   
                                     <br />
@@ -41,6 +41,7 @@
                                                         <option value="publish_posts" <?php if (isset($options['capability']) && $options['capability'] == "publish_posts") echo 'selected="selected"'?>><?php _e('Author', 'taxonomy-terms-order') ?></option>
                                                         <option value="publish_pages" <?php if (isset($options['capability']) && $options['capability'] == "publish_pages") echo 'selected="selected"'?>><?php _e('Editor', 'taxonomy-terms-order') ?></option>
                                                         <option value="manage_options" <?php if (!isset($options['capability']) || empty($options['capability']) || (isset($options['capability']) && $options['capability'] == "manage_options")) echo 'selected="selected"'?>><?php _e('Administrator', 'taxonomy-terms-order') ?></option>
+                                                        <?php do_action('tto/admin/plugin_options/capability') ?>
                                                     </select>
                                                 </td>
                                             </tr>

@@ -1,56 +1,79 @@
 <?php
 
+declare(strict_types=1);
+
 namespace ACP\Sorting\Model\Post;
 
-use ACP\Sorting\AbstractModel;
-use ACP\Sorting\Sorter;
-use ACP\Sorting\Strategy;
+use ACP\Query\Bindings;
+use ACP\Sorting\Model\QueryBindings;
+use ACP\Sorting\Model\SqlOrderByFactory;
+use ACP\Sorting\Model\WarningAware;
+use ACP\Sorting\Type\Order;
 
-/**
- * @property Strategy\Post $strategy
- */
-class Permalink extends AbstractModel {
+class Permalink implements WarningAware, QueryBindings
+{
 
-	public function get_sorting_vars() {
-		return [
-			'ids' => $this->get_sorted_ids(),
-		];
-	}
+    use PostRequestTrait;
 
-	/**
-	 * @return int[]
-	 */
-	private function get_sorted_ids() {
-		global $wpdb;
+    private $post_type;
 
-		// only fetch the fields needed for `get_permalink()`
-		$sql = $wpdb->prepare( "
+    public function __construct(string $post_type)
+    {
+        $this->post_type = $post_type;
+    }
+
+    public function create_query_bindings(Order $order): Bindings
+    {
+        global $wpdb;
+
+        return (new Bindings())->order_by(
+            SqlOrderByFactory::create_with_ids(
+                "$wpdb->posts.ID",
+                $this->get_sorted_ids(),
+                (string)$order
+            )
+        );
+    }
+
+    private function get_sorted_ids(): array
+    {
+        global $wpdb;
+
+        // only fetch the fields needed for `get_permalink()`
+        $sql = $wpdb->prepare(
+            "
 			SELECT pp.ID, pp.post_type, pp.post_status, pp.post_name, pp.post_date, pp.post_parent
-			FROM {$wpdb->posts} AS pp 
-			WHERE pp.post_type = %s
+			FROM $wpdb->posts AS pp
+			WHERE pp.post_type = %s AND pp.post_name <> ''
 		",
-			$this->strategy->get_post_type()
-		);
+            $this->post_type
+        );
 
-		$status = $this->strategy->get_post_status();
+        $status = $this->get_var_post_status();
 
-		if ( $status ) {
-			$sql .= sprintf( " AND pp.post_status IN ( '%s' )", implode( "','", array_map( 'esc_sql', $status ) ) );
-		}
+        if ($status) {
+            $sql .= $wpdb->prepare("\nAND pp.post_status = %s", $status);
+        }
 
-		$results = $wpdb->get_results( $sql );
+        $results = $wpdb->get_results($sql);
 
-		if ( ! $results ) {
-			return [];
-		}
+        if ( ! $results) {
+            return [];
+        }
 
-		$ids = [];
+        $values = [];
 
-		foreach ( $results as $object ) {
-			$ids[ $object->ID ] = get_permalink( get_post( $object ) );
-		}
+        foreach ($results as $object) {
+            $link = get_permalink(get_post($object));
 
-		return ( new Sorter() )->sort( $ids, $this->get_order() );
-	}
+            if ($link && is_string($link)) {
+                $values[$object->ID] = $link;
+            }
+        }
+
+        natcasesort($values);
+
+        return array_keys($values);
+    }
 
 }

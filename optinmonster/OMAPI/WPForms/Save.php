@@ -21,15 +21,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 class OMAPI_WPForms_Save {
 
 	/**
-	 * Holds the class object.
-	 *
-	 * @since 2.9.0
-	 *
-	 * @var OMAPI_WPForms_Save
-	 */
-	public static $instance;
-
-	/**
 	 * Holds save error.
 	 *
 	 * @since 2.9.0
@@ -64,7 +55,7 @@ class OMAPI_WPForms_Save {
 	 * @return void
 	 */
 	public function connect() {
-		$this->updateConnection();
+		$this->update_connection();
 	}
 
 	/**
@@ -75,7 +66,7 @@ class OMAPI_WPForms_Save {
 	 * @return void
 	 */
 	public function disconnect() {
-		$this->updateConnection( false );
+		$this->update_connection( false );
 	}
 
 	/**
@@ -83,9 +74,11 @@ class OMAPI_WPForms_Save {
 	 *
 	 * @since 2.9.0
 	 *
+	 * @param bool $connect True to connect, false to disconnect.
+	 *
 	 * @return void
 	 */
-	public function updateConnection( $connect = true ) {
+	public function update_connection( $connect = true ) {
 		$creds = $this->base->get_api_credentials();
 
 		if ( empty( $creds['apikey'] ) && empty( $creds['user'] ) && empty( $creds['key'] ) ) {
@@ -96,16 +89,13 @@ class OMAPI_WPForms_Save {
 		$action = $connect ? 'connect' : 'disconnect';
 		$api    = new OMAPI_Api( 'wpforms/' . $action, $creds, 'POST', 'v2' );
 
-		$data = array(
-			'homeUrl'  => esc_url_raw( home_url() ),
-			'adminUrl' => esc_url_raw( get_admin_url() ),
-		);
-
-		$response = $api->request( $data );
+		$response = $api->request( OMAPI_Api::get_url_args() );
 
 		if ( is_wp_error( $response ) ) {
 			$message = $connect
+				/* translators: %s - Error message found while connecting to OptinMonster. */
 				? esc_html__( 'WPForms could not be connected to OptinMonster. The OptinMonster API returned with the following response: %s', 'optin-monster-api' )
+				/* translators: %s - Error message found while disconnecting to OptinMonster. */
 				: esc_html__( 'WPForms could not be disconnected from OptinMonster. The OptinMonster API returned with the following response: %s', 'optin-monster-api' );
 
 			$this->error = sprintf( $message, $response->get_error_message() );

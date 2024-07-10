@@ -101,6 +101,7 @@ class OMAPI_Actions {
 		if (
 			empty( $option['userId'] )
 			|| empty( $option['accountId'] )
+			|| empty( $option['accountUserId'] )
 			|| empty( $option['currentLevel'] )
 			|| empty( $option['plan'] )
 			|| empty( $creds['apikey'] )
@@ -261,10 +262,10 @@ class OMAPI_Actions {
 	 * @return bool  Whether upgrade routine was completed successfully.
 	 */
 	public function v290_upgrades() {
-		$creds  = $this->base->get_api_credentials();
-		$siteId = $this->base->get_site_id();
+		$creds   = $this->base->get_api_credentials();
+		$site_id = $this->base->get_site_id();
 
-		if ( empty( $creds['apikey'] ) || empty( $siteId ) ) {
+		if ( empty( $creds['apikey'] ) || empty( $site_id ) ) {
 			return false;
 		}
 
@@ -272,7 +273,7 @@ class OMAPI_Actions {
 			'admin_url' => esc_url_raw( get_admin_url() ),
 		);
 
-		$api     = OMAPI_Api::build( 'v2', 'sites/' . $siteId, 'PUT', $creds );
+		$api     = OMAPI_Api::build( 'v2', 'sites/' . $site_id, 'PUT', $creds );
 		$results = $api->request( $args );
 
 		return ! is_wp_error( $results );

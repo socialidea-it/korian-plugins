@@ -2,10 +2,10 @@
 
 Contributors: publishpress, kevinB, stevejburge, andergmartins
 Tags: restrict, access, permissions, cms, user, private, category, pages, privacy, capabilities, role, scoper
-Requires at least: 4.9.7
-Tested up to: 6.1
-Requires PHP: 5.6.20
-Stable tag: 3.8.4
+Requires at least: 5.5
+Tested up to: 6.5
+Requires PHP: 7.2.5
+Stable tag: 4.0.26
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -38,19 +38,19 @@ The Pro version of PublishPress Permissions has many advanced features such as t
 10. **Editorial Circles and Visibility Circles (Pro version)**: Restrict users to editing or viewing posts that were authored by other users in the same group.
 11. **Integration with other plugins (Pro version)**: The Permissions plugin integrates with other popular plugins including bbPress, BuddyPress, WPML, and Relevanssi.
 
-## Feature #1. Viewing Permissions for WordPress Content ##
+## Feature 1. Viewing Permissions for WordPress Content ##
 
 PublishPress Permissions enables you to customize viewing access for WordPress content. Open any post and you'll see a box with the label, "Permissions: Read this Post". This box allows you to choose "Enabled" or "Blocked" for any user role, individual user, or user group. You can also set permissions for all users who are guests, and those who are logged in.
 
 [Click here to see how to control viewing permissions](https://publishpress.com/knowledge-base/viewing-permissions/).
 
-## Feature #2. Editing Permissions for WordPress Content ## 
+## Feature 2. Editing Permissions for WordPress Content ## 
 
 PublishPress Permissions allows you to customize the editing permissions for all your content. Open a Post, Page, Category, Tag, or custom post type and you can decide who is allowed to edit that content. You can even prevent users from editing child pages of a specific parent page. Open any content item and you'll see a box with a label like this: "Permissions: Edit this Post". This box allows you to choose "Enabled" or "Blocked" for any user role, individual user, or user group.
 
 [Click here to see how to control editing permissions](https://publishpress.com/knowledge-base/editing-permissions/).
 
-## Feature #3. Access Permissions for the Media Library ## 
+## Feature 3. Access Permissions for the Media Library ## 
 
 PublishPress Permissions gives you detailed control over access to media on your WordPress site. You decide who gets to edit and view files in your Media Library. For example, you can set up WordPress so that users only have access to files that they uploaded. Or you can add an exception so users can edit other people's media files if they are attached to a post they can edit.
 
@@ -58,40 +58,40 @@ The Pro version of Permissions allows you to deny any public access to files on 
 
 [Click here to see how to manage access to your media files](https://publishpress.com/knowledge-base/permissions-media-files/).
 
-## Feature #4. Hide Other Users' Posts in the WordPress Admin ##
+## Feature 4. Hide Other Users' Posts in the WordPress Admin ##
 
 By default, WordPress users in the admin area can see all the Posts on the site, regardless of whether they are the author. This is not a problem for many sites. After all, most posts on most sites are publicly available – there's no need to hide them. However, in some situations, site owners don't want authors to see the posts that other users are working on. PublishPress Permissions can hide posts in the WordPress admin area, unless you have access to edit that post.
 
 [Click here to see how to hide other users' posts](https://publishpress.com/blog/hide-peoples-posts-wordpress-admin/).
 
-## Feature #5. Create Your Own User Groups ##
+## Feature 5. Create Your Own User Groups ##
 
 PublishPress Permissions allows you to create your own user groups. Imagine you want to give some users access to a single Post. Instead of creating a new user role and applying all the permissions, you can easily add those users to a group. This is a simple and more flexible alternative to user roles. You can also prevent users from reading or editing content if they are not in a specific group. By default, this plugin gives you sample groups that include all Logged in and Logged out users so you can easily set public and private content.
 
 [Click here to see how to use custom user groups](https://publishpress.com/knowledge-base/groups/).
 
-## Feature #6. Show Teasers for Restricted Content (Pro Version) ##
+## Feature 6. Show Teasers for Restricted Content (Pro Version) ##
 
 PublishPress Permissions Pro allows you to display a teaser for unreadable content. This is perfect for making small snippets of your content available to the public. You can have teaser text that is publicly available, followed by private content that is only visible for your site's users. If you choose to display a login form, the redirect will go to the originally requested content.
 [Click here to see how to display content teasers](https://publishpress.com/knowledge-base/how-to-create-a-teaser-for-private-content-in-wordpress/).
 
-## Feature #7. Automatically Create Posts for Users (Pro Version) ##
+## Feature 7. Automatically Create Posts for Users (Pro Version) ##
 
 This Pro feature allows you to automatically create content for your users. For example, you can sync your staff members to Pages. This would allow your staff to each have their own page to edit and update. You can use this feature to automatically create posts, WooCommerce products, or any other post type that is defined on your site.
 [Click here to see how to automatically create posts for users](https://publishpress.com/knowledge-base/how-to-create-a-personal-page-for-each-wordpress-user/).
 
-## Feature #8. Create Your Own Publishing Statuses (Pro Version) ##
+## Feature 8. Create Your Own Publishing Statuses (Pro Version) ##
 
 WordPress provides some status options including "Draft", "Pending Review" and "Published". Permissions Pro enables you to design a far more advanced workflow. Each status you create can have its own unique capability requirements.
 [Click here to see how to build your own workflow statuses](https://publishpress.com/knowledge-base/multi-step-moderation/).
 
-## Feature #9. Create Your Own Visibility Statuses (Pro Version) ##
+## Feature 9. Create Your Own Visibility Statuses (Pro Version) ##
 
 With PublishPress Permissions Pro, you can create visibility options for your content. One example is a "Premium" status that makes content visible only for paying members. Another example is a "Staff" status, for the people who run your site.
 
 [Click here to see how to build your own visibility statuses](https://publishpress.com/knowledge-base/custom-post-visibility/).
 
-## Feature #10. Editorial Circles and Visibility Circles (Pro Version) ##
+## Feature 10. Editorial Circles and Visibility Circles (Pro Version) ##
 
 Visibility Circles are a feature in PublishPress Permissions Pro that restrict users to viewing posts that were authored by other users in the same group. PublishPress Permissions also has Editorial Circles. If you are in an Editorial Circle for Pages, you will only be able to edit pages authored by other circle members.
 
@@ -99,7 +99,7 @@ The most common way to use this feature is to restrict users in the Editor role 
 
 [Click here to see how to build your own Editorial Circles](https://publishpress.com/knowledge-base/circles/) and [click here to see how to build your own Visibility Circles](https://publishpress.com/knowledge-base/visibility-circles/).
 
-## Feature #11. Support for Other Plugins ## 
+## Feature 11. Support for Other Plugins ## 
 
 The Permissions plugin integrates with other popular plugins:
 
@@ -113,23 +113,25 @@ The Permissions plugin integrates with other popular plugins:
 
 The Pro versions of the PublishPress plugins are well worth your investment. The Pro versions have extra features and faster support. [Click here to join PublishPress](https://publishpress.com/pricing/).
 
-Join PublishPress and you'll get access to these Pro plugins:
+Join PublishPress and you'll get access to these nine Pro plugins:
 
 * [PublishPress Authors Pro](https://publishpress.com/authors) allows you to add multiple authors and guest authors to WordPress posts.
 * [PublishPress Blocks Pro](https://publishpress.com/blocks) has everything you need to build professional websites with the WordPress block editor.
 * [PublishPress Capabilities Pro](https://publishpress.com/capabilities) is the plugin to manage your WordPress user roles, permissions, and capabilities.
 * [PublishPress Checklists Pro](https://publishpress.com/checklists) enables you to define tasks that must be completed before content is published.
+* [PublishPress Future Pro](https://publishpress.com/future)  is the plugin for scheduling changes to your posts.
 * [PublishPress Permissions Pro](https://publishpress.com/permissions) is the plugin for advanced WordPress permissions.
-* [PublishPress Pro](https://publishpress.com/publishpress) is the plugin for managing and scheduling WordPress content.
+* [PublishPress Planner Pro](https://publishpress.com/publishpress) is the plugin for managing and scheduling WordPress content.
 * [PublishPress Revisions Pro](https://publishpress.com/revisions) allows you to update your published pages with teamwork and precision.
 * [PublishPress Series Pro](https://publishpress.com/series) enables you to group content together into a series 
 
 Together, these plugins are a suite of powerful publishing tools for WordPress. If you need to create a professional workflow in WordPress, with moderation, revisions, permissions and more, then you should try PublishPress.
 
-= Bug Reports =
+## Bug Reports ## 
+
 Bug reports for PublishPress Permissions are welcomed in our [repository on GitHub](https://github.com/publishpress/publishpress-permissions). Please note that GitHub is not a support forum, and that issues that aren't properly qualified as bugs will be closed.
 
-= Follow the PublishPress team =
+## Follow the PublishPress team ## 
 
 Follow PublishPress on [Facebook](https://www.facebook.com/publishpress), [Twitter](https://www.twitter.com/publishpresscom) and [YouTube](https://www.youtube.com/publishpress)
 
@@ -237,6 +239,162 @@ Yes, we use the phrase "publishpress-ppcore-install" to share install links. You
 9. Create your own Privacy Statuses: Create visibility options for your content. One example is a "Premium" status that makes content visible only for paying members. 
 
 == Changelog ==
+
+= 4.0.26 - 1 Jul 2024 =
+Re-release with incremented version to force clearance of update package caches after previous mistagging
+
+= 4.0.25 - 26 Jun 2024 =
+* Compat : PublishPress Revisions - Administrators could not be added to Change Request Notification group
+
+= 4.0.24 - 18 Jun 2024 =
+* Compat : Advanced Custom Fields - Custom Post Types did not have type-specific capabilities enforced unless explicitly configured in ACF settings
+* Compat : Admin Columns - Users listing inappropriately filtered under some conditions
+* Compat : Disable Gutenberg - Classic Editor mode was not detected under some configurations
+* Fixed : Settings UI - Checkbox for Permissions > Settings > Editing > Media Library > "Prevent editing uploads if attached to a non-editable post" not displayed under some conditions
+* Fixed : Fatal error if constant SSEO_VERSION is unexpectedly defined
+
+= 4.0.23 - 7 May 2024 =
+* Compat : Google Analytics by MonsterInsights - custom field error message on post update
+* Compat : PublishPress Revisions - Apply restrictive Submit Revisions permissions to limit Revision Queue listing
+* Compat : PublishPress Capabilities - Negated capabilities were not properly applied under some Permissions configurations
+* Compat : User Posts Limit - Users could not create more than one post
+* Fixed : On selection of multiple new users for group membership, if one was already a group member, none of the new selections were added
+
+= 4.0.22 - 26 Apr 2024 =
+* Fixed : Fatal error updating a subpage
+
+= 4.0.21 - 25 Apr 2024 =
+* Fixed : Gutenberg Editor - empty categories were unselectable on some installations
+* Change : Option to restore previous behavior by suppressing front end term filtering under some conditions
+* Change : Remove penguins from Permissions > Settings screen header
+* Fixed : PHP Warning on plugin activation
+* Perf : Improve performance of user groups retrieval query
+* Perf : Improve performance of post update query under some conditions
+* Perf : Improve performance on attachment upload / update
+
+= 4.0.20 - 4 Mar 2024 =
+* Fixed : PHP Warning on PublishPress\Permissions\Groups::getGroupsForUser() / pp_get_groups_for_user() call
+
+= 4.0.19 - 29 Feb 2024 =
+* API : Function pp_get_groups_for_user() no longer defaulted to returning group objects
+* Compat : bbPress - Forum Role column on Users screen was hidden
+* Lang : Upate ES, FR, IT translations
+
+= 4.0.18 - 27 Feb 2024 =
+* Perf : Eliminated scan of users table on plugin activation (impacting sites with large number of users)
+* Perf : Eliminated recursive query of subpages (impacting sites with complex page hierarchies)
+* Perf : Improved caching of post capability checks
+* Perf : On category / term queries, don't filter term counts if empty terms are not being hidden and counts are not being shown
+* Code : Improved PHP Code Sniffer scan results
+* Compat : Elementor - Could not use Elementor front end editor to save a draft of a published post
+* Compat : Nested Pages - Apply pp_force_quick_edit capability to Nested Pages' Quick Edit and Contextual Add / Insert buttons
+* Fixed : Filters for Post category, Tags, Terms, Parent or Status could be applied to wrong post under certain conditions
+* Fixed : Permissions > Settings > Core > Front End > "Performance: Don't filter category / tag counts" was not applied for Administrator
+* Fixed : Some strings on Permissions > Settings were not translated
+* Fixed : Gutenberg editor usage was not properly detected when triggered by another plugin, possibly leading to issues with category / term assignment filtering
+* Fixed : Category pages: Subcategory posts were inappropriately hidden on some sites
+* Fixed : Legacy Nav Menu Management - Limited Nav Menu editors saw uneditable menus in dropdown on Menus management screen
+* Fixed : Legacy Nav Menu Management filters interfered with front end filtering under some conditions
+* Fixed : Sanity check to prevent excessive version history logging if installed plugin's version tags or version tag storage is incorrect
+* Fixed : Terms were inappropriately auto-assigned under some conditions
+* Change : Permissions > Settings > Editing option to disable auto-assignment of terms (when default term is not selectable). Note: Auto-assignment is required for some term-restricted editing configurations.
+* Change : Auto-assign a term only if no default terms are selectable and the user's editing access is modified by term-specific Permissions
+* Change : Never auto-assign a term to front page or posts page
+* Change : Constant definitions related to term auto-assignment to assist any potential troubleshooting or restore previous behavior
+* Change : User search for Specific Permission assignment - use LIKE matching for user meta field searches
+* Change : Suppress "Enable Permissions" metaboxes in Post editor, Edit Term screens
+* Change : Support constant PRESSPERMIT_MEDIA_UPLOAD_GRANT_PAGE_EDIT_CAPS for front end uploading solutions that require page editing capabilities for the async upload request
+* Lib : Update wordpress-reviews library to v1.1.20
+* Lib : Update wordpress-version-notices library to v2.1.3
+* Lang : Update ES, FR, IT translations
+
+= 3.11.6 - 13 Dec 2023 =
+* Feature : Option to require Taxonomy edit capability to assign post tags that do not already exist
+* Fixed : On Post edit, Tags were not filtered based on Specific Permissions
+* Fixed : On Permissions > Settings, All Taxonomies remained checked even after updating with some disabled
+* Compat : Work around unidentified compatibility issue affecting term filtering and access to certain static methods
+
+= 3.11.5 - 1 Nov 2023 =
+* Compat : Beaver Builder - Queries within BB shortcodes were improperly filtered
+* Fixed : Supplemental role captions were blank
+* Fixed : PHP Warning "Attempt to read property 'count' on string"
+* Fixed : PHP Warning "Undefined variable $admin_post_new_url"
+
+= 3.11.4 - 26 Oct 2023 =
+* Fixed : Collaborative Publishing module was not loaded correctly on some installations
+* Fixed : Caption for Permissions: Assign Term metabox in post editor
+* Fixed : PHP Warnings on Permission Groups screen
+
+= 3.11.3 - 25 Oct 2023 =
+* Fixed : Some Permissions filtering was not applied on sites with a custom wp-admin URL
+* Fixed : Type-specific Supplemental Roles also granted most generic capabliities in Pattern Role. Introduce new Permissions > Advanced > Role Integration setting to restore previous behavior if needed.
+* Fixed : On page edit, if the Page Parent is not editable by the logged in user, it is hidden from the Page Parent selector. This occurred only with WP >= 6.3 and with a non-standard advanced Permissions configuration.
+* Fixed : PHP Warning in term filtering (Attempt to read property "term_taxonomy_id" on string) under some configurations
+* Fixed : Filtering of default category / term by other plugin was overridden
+* Fixed : Edit User Permissions - PHP Warning "compact(): Argument must be string..."
+* Fixed : Fatal error "Call to a member function init() on null" under some configurations
+* Fixed : Version update script triggering could be skipped on Pro installation under some conditions
+* Compat : Polylang + WP 6.3 - Language filter was no longer applied to Page Parent dropdown
+* Change : Added installation log to Permissions > Settings > Install
+
+= 3.11.1 - 30 Aug 2023 =
+* Fixed : Rest API access error on some sites (potentially preventing login)
+* Fixed : Gallery block in Gutenberg editor: error loading Image Size dropdown options
+* Fixed : Caption for Navigation Menus (for Navigation block) did not distinguish them from legacy Nav Menus
+* Fixed : PHP 8.1 - Warning for dynamic property creation in post editor
+* Compat : Peepso - Non-administrators couldn't submit front end posts on PHP >= 8.1
+
+= 3.10.0 - 19 Jun 2023 =
+* Compat : WooCommerce - Private Products were not listed in Shop, even if Read Permissions are assigned
+* Compat : ACF Extended - Extra Update button on Edit Term screen
+* Fixed : Fatal error for undefined PUBLISHPRESS_PERMISSIONS_PRO_VENDOR_PATH on some installations
+* Fixed : If a "Limit to: (none)" Permission is assigned to default-restrict a post type, creating a new post causes a post-specific allowance to be assigned
+* Fixed : Category filtering error caused Nav Menu corruption if empty category is used as a top level menu
+* Change : Bump WordPress version requirement to 5.5
+* Change : Bump PHP version requirement to 7.2.5
+* Change : Update vendor libraries based on revised PHP version support
+
+= 3.9.3 - 11 May 2023 =
+* Change : Adjustment to composer.json
+* Change : Adjustment to .gitignore
+
+= 3.9.2 - 10 May 2023 =
+* Fixed : Remove .git nested folders from some vendor libraries, using build script
+
+= 3.9.1 - 9 May 2023 =
+* Fixed : Fatal error in Composer installs due to missing vendor libraries
+* Compat : PublishPress Planner - Status Change notifications were not sent
+
+= 3.9.0 - 4 May 2023 =
+* Fixed : Error updating plugin with Composer, fixed by removing unused vendor libraries
+* Fixed : Fatal error in wp-admin if certain request variables have unexpected values
+* Change : Bump WordPress version requirement to 5.5
+* Change : Bump PHP version requirement to 7.2.5
+* Change : Update vendor libraries based on revised PHP version support
+
+= 3.8.8 - 04 May 2023 =
+* Change: Added warning about end of support for WordPress 5.4 and earlier. PublishPress Permissions 3.9 will require WordPress 5.5 or later.
+
+= 3.8.7 - 30 Mar 2023 =
+* Change : Media Library - new setting to disable "Prevent editing uploads if attached to a non-editable post", available if Settings > Core > Filtered Post Types > "Enforce distinct capabilities for Media" is enabled 
+* Compat : WPML - Logged in users saw 404 error on Home Page viewing request if post type is not enabled for Permissions filtering
+* Fixed : Error on post creation / update by Editor, under some configurations
+* Fixed : PHP 8.1 - Notice in wp-admin 
+* Change : Minimum PHP version 7.2.5
+
+= 3.8.6 - 23 Mar 2023 =
+* Compat : Elementor - Error, memory exhaustion when users try to edit their own draft in Elementor
+* Compat : PublishPress Revisions - When revision submission is enabled for unpublished posts, Revision Creation exceptions also allowed publication of main post
+* Fixed : Fatal Error for some get_pages() queries
+
+= 3.8.5 - 9 Feb 2023 =
+* Fixed : Permission Group description was cleared when a new Permission is saved
+* Fixed : If Permissions were set to limit Page Parent selection to a single page and its descendants, when that page itself was edited, all pages were displayed in Page Parent selector (though they could not be saved)
+* Fixed : Nav Menu Management: Menu update by a limited user cause all uneditable menu items to be removed 
+* Fixed : Nav Menu management by limited user based on Permissions for a specific menu - On menu update, all uneditable items were removed 
+* Fixed : PHP Warning in login popup after current login times out
+* Fixed : If constant PP_RESTRICTION_PRIORITY is set, "Limit to" Category permissions (the unblocked list) were still overriding "Exclude" Category permissions
+* Compat : PublishPress Revisions - Permissions limiting revision creation to only specific posts also blocked reading access to other posts
 
 = 3.8.4 - 15 Dec 2022 =
 * Fixed : Nav Menu Manager role had no label on Edit Permissions screen after storage

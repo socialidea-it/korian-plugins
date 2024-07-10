@@ -2,29 +2,29 @@
 
 namespace ACP\Sorting\Model\Post;
 
-class MetaMapping extends Meta {
+use ACP\Sorting\Model\SqlOrderByFactory;
+use ACP\Sorting\Type\Order;
 
-	/**
-	 * @var array
-	 */
-	private $sorted_fields;
+class MetaMapping extends Meta
+{
 
-	/**
-	 * @param string $meta_key
-	 * @param array  $sorted_fields
-	 */
-	public function __construct( $meta_key, array $sorted_fields ) {
-		parent::__construct( $meta_key );
+    private $fields;
 
-		$this->sorted_fields = $sorted_fields;
-	}
+    public function __construct(string $meta_key, array $fields)
+    {
+        parent::__construct($meta_key);
 
-	protected function get_orderby() {
-		global $wpdb;
+        $this->fields = $fields;
+    }
 
-		$fields = implode( "','", array_map( 'esc_sql', $this->sorted_fields ) );
-
-		return sprintf( "FIELD( acsort_postmeta.meta_value, '%s' ) %s, {$wpdb->posts}.ID", $fields, $this->get_order() );
-	}
+    protected function get_order_by(Order $order): string
+    {
+        return SqlOrderByFactory::create_with_field(
+            "acsort_postmeta.meta_value",
+            $this->fields,
+            (string)$order,
+            $this->data_type
+        );
+    }
 
 }

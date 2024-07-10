@@ -1,64 +1,51 @@
 <?php
 
+declare(strict_types=1);
+
 namespace ACP\Sorting\Model\Post\RelatedMeta;
 
-use ACP\Sorting\AbstractModel;
+use ACP\Query\Bindings;
+use ACP\Sorting\Model\QueryBindings;
+use ACP\Sorting\Model\SqlOrderByFactory;
+use ACP\Sorting\Type\Order;
 
-class PostMeta extends AbstractModel {
+class PostMeta implements QueryBindings
+{
 
-	/**
-	 * @var string
-	 */
-	private $meta_field;
+    private $meta_field;
 
-	/**
-	 * @var string
-	 */
-	private $meta_key;
+    private $meta_key;
 
-	public function __construct( $meta_field, $meta_key ) {
-		parent::__construct();
+    public function __construct(string $meta_field, string $meta_key)
+    {
+        $this->meta_field = $meta_field;
+        $this->meta_key = $meta_key;
+    }
 
-		$this->meta_field = $meta_field;
-		$this->meta_key = $meta_key;
-	}
+    public function create_query_bindings(Order $order): Bindings
+    {
+        global $wpdb;
 
-	public function get_sorting_vars() {
-		add_filter( 'posts_clauses', [ $this, 'sorting_clauses_callback' ] );
+        $bindings = new Bindings();
+        $alias1 = $bindings->get_unique_alias('meta');
+        $alias = $bindings->get_unique_alias('meta');
 
-		return [
-			'suppress_filters' => false,
-		];
-	}
+        $bindings->join(
+            $wpdb->prepare(
+                "
+                LEFT JOIN $wpdb->postmeta AS $alias1 ON $wpdb->posts.ID = $alias1.post_id AND $alias1.meta_key = %s 
+			    LEFT JOIN $wpdb->postmeta AS $alias ON $alias1.meta_value = $alias.post_id AND $alias.meta_key = %s 
+			    ",
+                $this->meta_key,
+                $this->meta_field
+            )
+        );
+        $bindings->group_by("$wpdb->posts.ID");
+        $bindings->order_by(
+            SqlOrderByFactory::create("$alias.meta_value", (string)$order)
+        );
 
-	public function sorting_clauses_callback( $clauses ) {
-		global $wpdb;
-
-		$order = esc_sql( $this->get_order() );
-
-		$join_type = $this->show_empty
-			? 'LEFT'
-			: 'INNER';
-
-		$clauses['fields'] .= ", acsort_pm2.meta_value AS acsort_field";
-
-		$clauses['join'] .= $wpdb->prepare( "
-			{$join_type} JOIN $wpdb->postmeta AS acsort_pm ON $wpdb->posts.ID = acsort_pm.post_id
-				AND acsort_pm.meta_key = %s 
-			{$join_type} JOIN $wpdb->postmeta AS acsort_pm2 ON acsort_pm.meta_value = acsort_pm2.post_id
-				AND acsort_pm2.meta_key = %s 
-			", $this->meta_key, $this->meta_field );
-
-		if ( ! $this->show_empty ) {
-			$clauses['join'] .= " AND acsort_pm2.meta_value !=''";
-		}
-
-		$clauses['orderby'] = "acsort_field $order, $wpdb->posts.ID $order";
-		$clauses['groupby'] = "$wpdb->posts.ID";
-
-		remove_filter( 'posts_clauses', [ $this, __FUNCTION__ ] );
-
-		return $clauses;
-	}
+        return $bindings;
+    }
 
 }

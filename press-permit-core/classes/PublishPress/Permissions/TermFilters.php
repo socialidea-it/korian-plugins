@@ -7,7 +7,7 @@ namespace PublishPress\Permissions;
  *
  * @package PressPermit
  * @author Kevin Behrens <kevin@agapetry.net>
- * @copyright Copyright (c) 2019, PublishPress
+ * @copyright Copyright (c) 2024, PublishPress
  *
  */
 
@@ -98,7 +98,7 @@ class TermFilters
             if (presspermit()->doing_rest) {
                 $operation = REST::instance()->operation;
 
-            } elseif (!empty($_SERVER['HTTP_REFERER']) && strpos(esc_url_raw($_SERVER['HTTP_REFERER']), 'wp-admin/post')) {
+            } elseif (!empty($_SERVER['HTTP_REFERER']) && false !== strpos(esc_url_raw($_SERVER['HTTP_REFERER']), PWP::admin_rel_url('post'))) {
                 $operation = 'edit';
             }
 
@@ -166,10 +166,24 @@ class TermFilters
             return true;
         }
 
+        if (defined('DOING_AJAX') && DOING_AJAX && method_exists('\PressShack\LibWP', 'REQUEST_key')) {
+            if ($action = PWP::REQUEST_key('action')) {
+                if (in_array(
+                    $action, 
+                    (array) apply_filters(
+                        'presspermit_unfiltered_ajax',
+                        ['woocommerce_load_variations', 'woocommerce_add_variation', 'woocommerce_remove_variations', 'woocommerce_save_variations', 'us_ajax_grid']
+                    ), true)
+                ) {
+                    return true;
+                }
+            }
+        }
+
         // Kriesi Enfold theme conflict on "More Posts" query
         if (
             defined('DOING_AJAX') && DOING_AJAX
-            && presspermit_is_REQUEST('action', apply_filters('presspermit_unfiltered_ajax_termcount', ['avia_ajax_masonry_more']))
+            && PWP::is_REQUEST('action', apply_filters('presspermit_unfiltered_ajax_termcount', ['avia_ajax_masonry_more']))
         ) {
             return true;
         }
@@ -209,7 +223,7 @@ class TermFilters
             
             if ($rest->is_posts_request) {
                 if (empty($args['required_operation']) || ('assign' != $args['required_operation'])) {
-                    if (!empty($_SERVER['HTTP_REFERER']) && strpos(esc_url_raw($_SERVER['HTTP_REFERER']), 'wp-admin/post')) {
+                    if (!empty($_SERVER['HTTP_REFERER']) && false !== strpos(esc_url_raw($_SERVER['HTTP_REFERER']), PWP::admin_rel_url('post'))) {
                         $args['required_operation'] = 'edit';
                     } else {
                         $args['required_operation'] = $rest->operation;
@@ -219,8 +233,16 @@ class TermFilters
                 if (!empty($rest->operation)) {
                     $args['required_operation'] = $rest->operation;
                 } else {
-                	$args['required_operation'] = ('WP_REST_Posts_Controller' == $rest->endpoint_class) ? 'assign' : 'manage';
+                    $args['required_operation'] = ('WP_REST_Posts_Controller' == $rest->endpoint_class) ? 'assign' : 'manage';
                 }
+
+                if (!defined('PRESSPERMIT_LEGACY_TERM_FILTERS_ARGS')) {
+                    $args['hide_empty'] = false;
+                }
+            }
+
+            if (defined('PRESSPERMIT_REST_TERM_FILTER_SHOW_EMPTY')) {
+                $args['hide_empty'] = false;
             }
         }
 
@@ -249,7 +271,7 @@ class TermFilters
             $args['required_operation'] = 'assign';
             
         } elseif (empty($args['required_operation']) && !defined('PP_ADMIN_TERMS_READONLY_LISTABLE') && (!defined('PP_ADMIN_READONLY_LISTABLE') || presspermit()->getOption('admin_hide_uneditable_posts'))) {
-            if ('edit-tags.php' == $pagenow) {
+            if (in_array($pagenow, ['edit-tags.php', 'nav-menus.php'])) {
                 $args['required_operation'] = 'manage';
             } else {
 	            $args['required_operation'] = apply_filters(
@@ -259,6 +281,12 @@ class TermFilters
 	                $args
 	            );
             }
+        }
+
+        if (!empty($args['required_operation']) && in_array($args['required_operation'], ['assign', 'manage']) 
+        && !defined('PRESSPERMIT_LEGACY_TERM_FILTERS_ARGS')
+        ) {
+            $args['hide_empty'] = false;
         }
 
         if (presspermit()->isUserUnfiltered() && !defined('PRESSPERMIT_ALLOW_ADMIN_TERMS_FILTER')) {
@@ -280,6 +308,8 @@ class TermFilters
             if (!in_array($required_operation, ['manage', 'associate'], true)) {
                 $universal = [];
                 $universal['include'] = $user->getExceptionTerms($required_operation, 'include', '', $taxonomy);
+
+                // phpcs:ignore WordPressVIPMinimum.Performance.WPQueryParams.PostNotIn_exclude
                 $universal['exclude'] = ($universal['include']) ? [] : $user->getExceptionTerms($required_operation, 'exclude', '', $taxonomy);
                 $universal['additional'] = $user->getExceptionTerms($required_operation, 'additional', '', $taxonomy);
 
@@ -290,12 +320,25 @@ class TermFilters
                     if (!empty($_SERVER['HTTP_REFERER'])) {
                         $referer = esc_url_raw($_SERVER['HTTP_REFERER']);
 
+                        $admin_post_rel_url = preg_quote(
+                            PWP::admin_rel_url('post.php'),
+                            '/'
+                        );
+
+                        $admin_post_new_rel_url = preg_quote(
+                            PWP::admin_rel_url('post-new.php'),
+                            '/'
+                        );
+
                         $matches = [];
-                        preg_match("/wp-admin\/post\.php\?post=([0-9]+)/", $referer, $matches);
+                        preg_match("/$admin_post_rel_url\?post=([0-9]+)/", $referer, $matches);
+
                         if (!empty($matches[1])) {
                             $args['object_type'] = get_post_field('post_type', $matches[1]);
-                        } elseif (strpos($referer, 'wp-admin/post-new.php')) {
-                            preg_match("/wp-admin\/post-new\.php\?post_type=([a-zA-Z_\-0-9]+)/", $referer, $matches);
+
+                        } elseif (false !== strpos($referer, $admin_post_new_rel_url)) {
+                            preg_match("/$admin_post_new_rel_url\?post_type=([a-zA-Z_\-0-9]+)/", $referer, $matches);
+                            
                             if (!empty($matches[1])) {
                                 $args['object_type'] = $matches[1];
                             } else {
@@ -344,6 +387,7 @@ class TermFilters
 
                     // remove type-specific inclusions from universal exclusions
                     if ('include' == $mod_type) {
+                        // phpcs:ignore WordPressVIPMinimum.Performance.WPQueryParams.PostNotIn_exclude
                         $universal['exclude'] = array_diff($universal['exclude'], $tt_ids);
                     }
 

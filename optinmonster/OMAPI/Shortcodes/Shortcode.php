@@ -30,7 +30,7 @@ class OMAPI_Shortcodes_Shortcode {
 	public $base;
 
 	/**
-	 * Shorcode attributes.
+	 * Shortcode attributes.
 	 *
 	 * @since 2.6.9
 	 *
@@ -39,7 +39,7 @@ class OMAPI_Shortcodes_Shortcode {
 	public $atts = array();
 
 	/**
-	 * The shorcode campaign identifier, slug (or ID for legacy/back-compat).
+	 * The shortcode campaign identifier, slug (or ID for legacy/back-compat).
 	 *
 	 * @since 2.6.9
 	 *
@@ -260,7 +260,7 @@ class OMAPI_Shortcodes_Shortcode {
 		// Try to grab the stored HTML.
 		$html = $this->base->output->prepare_campaign( $this->campaign );
 		if ( ! $html ) {
-			throw new OMAPI_Shortcodes_Exception( 'Optin opbject missing campaign html in post_content' );
+			throw new OMAPI_Shortcodes_Exception( 'Optin object missing campaign html in post_content' );
 		}
 
 		// Make sure to apply shortcode filtering.

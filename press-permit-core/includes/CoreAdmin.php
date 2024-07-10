@@ -20,16 +20,9 @@ class CoreAdmin {
 
         add_action('admin_print_scripts', [$this, 'setUpgradeMenuLink'], 50);
 
-        $autoloadPath = PRESSPERMIT_ABSPATH . '/vendor/autoload.php';
-        if (file_exists($autoloadPath)) {
-            require_once $autoloadPath;
-        }
-
-        require_once PRESSPERMIT_ABSPATH . '/vendor/publishpress/wordpress-version-notices/includes.php';
-
         add_filter(\PPVersionNotices\Module\TopNotice\Module::SETTINGS_FILTER, function ($settings) {
             $settings['press-permit-core'] = [
-                'message' => 'You\'re using PublishPress Permissions Free. The Pro version has more features and support. %sUpgrade to Pro%s',
+                'message' => esc_html__("You're using PublishPress Permissions Free. The Pro version has more features and support. %sUpgrade to Pro%s", 'press-permit-core'),
                 'link'    => 'https://publishpress.com/links/permissions-banner',
                 'screens' => [
                     ['base' => 'toplevel_page_presspermit-groups'],
@@ -63,6 +56,10 @@ class CoreAdmin {
     }
 
     function actAdminMenuPromos($pp_options_menu, $handler) {
+        // Disable custom status promos until PublishPress Statuses and compatible version of Permissions Pro are released
+        
+        // phpcs:ignore Squiz.PHP.CommentedOutCode.Found
+        /*
         add_submenu_page(
             $pp_options_menu, 
             esc_html__('Workflow Statuses', 'press-permit-core'), 
@@ -80,6 +77,7 @@ class CoreAdmin {
             'presspermit-visibility-statuses', 
             $handler
         );
+        */
 
         add_submenu_page(
             $pp_options_menu, 
@@ -129,16 +127,18 @@ class CoreAdmin {
         </style>
 
 		<script type="text/javascript">
+        /* <![CDATA[ */
             jQuery(document).ready(function($) {
                 $('#toplevel_page_presspermit-groups ul li:last a').attr('href', '<?php echo esc_url($url);?>').attr('target', '_blank').css('font-weight', 'bold').css('color', '#FEB123');
             });
+        /* ]]> */
         </script>
 		<?php
     }
 
     function actProModulesUI($active_module_plugin_slugs, $inactive) {
         $pro_modules = array_diff(
-            presspermit()->getAvailableModules(['suppress_filters' => true]), 
+            presspermit()->getAvailableModules(['force_all' => true]), 
             $active_module_plugin_slugs, 
             array_keys($inactive)
         );

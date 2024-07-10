@@ -3,53 +3,51 @@
 namespace ACP\Editing\Ajax;
 
 use AC;
+use AC\Registerable;
+use AC\Request;
 use AC\Response;
 
-abstract class TableRows extends Request {
+abstract class TableRows implements Registerable
+{
 
-	/**
-	 * @var AC\ListScreenWP
-	 */
-	protected $list_screen;
+    protected $request;
 
-	/**
-	 * @param AC\Request      $request
-	 * @param AC\ListScreenWP $list_screen
-	 */
-	public function __construct( AC\Request $request, AC\ListScreenWP $list_screen ) {
-		parent::__construct( $request );
+    protected $list_screen;
 
-		$this->list_screen = $list_screen;
-	}
+    public function __construct(Request $request, AC\ListScreen $list_screen)
+    {
+        $this->request = $request;
+        $this->list_screen = $list_screen;
+    }
 
-	/**
-	 * @return string
-	 */
-	protected function get_action() {
-		return 'get_table_rows';
-	}
+    public function is_request(): bool
+    {
+        return $this->request->get('ac_action') === 'get_table_rows';
+    }
 
-	public function handle_request() {
-		remove_action( 'parse_term_query', [ $this, __FUNCTION__ ] );
+    public function handle_request(): void
+    {
+        check_ajax_referer('ac-ajax');
 
-		$this->check_nonce();
+        $ids = $this->request->filter('ac_ids', [], FILTER_VALIDATE_INT, FILTER_REQUIRE_ARRAY);
 
-		$ids = $this->request->filter( 'ac_ids', [], FILTER_VALIDATE_INT, FILTER_REQUIRE_ARRAY );
+        $response = new Response\Json();
 
-		$response = new Response\Json();
+        if ( ! $ids) {
+            $response->error();
+        }
 
-		if ( ! $ids ) {
-			$response->error();
-		}
+        if ($this->list_screen instanceof AC\ListScreen\ListTable) {
+            $rows = [];
 
-		$rows = [];
+            foreach ($ids as $id) {
+                $rows[$id] = $this->list_screen->list_table()->render_row($id);
+            }
 
-		foreach ( $ids as $id ) {
-			$rows[ $id ] = $this->list_screen->get_single_row( $id );
-		}
+            $response->set_parameter('table_rows', $rows);
+        }
 
-		$response->set_parameter( 'table_rows', $rows )
-		         ->success();
-	}
+        $response->success();
+    }
 
 }

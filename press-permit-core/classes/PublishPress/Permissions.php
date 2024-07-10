@@ -13,7 +13,7 @@ use PublishPress\Permissions\Factory;
  *
  * @package PressPermit
  * @author Kevin Behrens <kevin@agapetry.net>
- * @copyright Copyright (c) 2019, PublishPress
+ * @copyright Copyright (c) 2024, PublishPress
  *
  */
 class Permissions
@@ -33,6 +33,7 @@ class Permissions
     private $modules = [];
     private $min_module_version = [];
     public $default_options = [];
+    public $default_advanced_options = [];
     public $netwide_options = [];
     public $site_options = [];
     public $net_options = [];
@@ -44,6 +45,8 @@ class Permissions
     public $listed_ids = [];               // $listed_ids[object_type][object_id] = true : avoid separate capability query for each listed item
     public $meta_cap_post = false;
     public $doing_cap_check = false;
+    private $sanitizing_post_id = false;
+    private $inserted_posts = [];
 
     public static function instance($args = [])
     {
@@ -57,13 +60,57 @@ class Permissions
         return self::$instance;
     }
 
+    public function getCurrentSanitizePostID() {
+        if (defined('PRESSPERMIT_LEGACY_POST_ID_DETECT')) {
+        	return 0;	
+    	}
+
+        if (!empty($this->sanitizing_post_id)) {
+            $post_id = $this->sanitizing_post_id;
+        }
+
+        return 0;
+    }
+
     private function __construct()
     {
         add_filter('presspermit_unfiltered_content', [$this, 'fltPluginCompatUnfilteredContent'], 5, 1);
+
+        // Log the post ID field for the sanitize_post() call by wp_insert_post(), 
+        // to provide context for subsequent pre_post_status, pre_post_parent, pre_post_category, pre_post_tags_input filter applications
+        add_filter('pre_post_ID', 
+            function($post_id) {
+                $this->sanitizing_post_id = $post_id;
+                return $post_id;
+            }
+        );
+
+        // Use the next filter called by wp_insert_post() too mark the end of sanitize_text_field() calls for this post
+        add_filter('wp_insert_post_empty_content',
+            function($maybe_empty, $postarr) {
+                if ($this->sanitizing_post_id && !empty($postarr['ID']) && ($postarr['ID'] == $this->sanitizing_post_id)) {
+                    $this->sanitizing_post_id = false;
+                }
+
+                return $maybe_empty;
+            }, 1, 2
+        );
+
+        add_action('wp_insert_post',
+            function ($post_id, $post, $update) {
+                if (empty($update)) {
+                    $this->inserted_posts[$post_id] = true;
+                }
+            }, 10, 3
+        );
     }
 
-    public function capDefs() {
-        if (!isset($this->cap_defs)) {
+    public function isInsertedPost($post_id) {
+        return !empty($this->inserted_posts[$post_id]);
+    }
+
+    public function capDefs($args = []) {
+        if (!isset($this->cap_defs) || !empty($args['force'])) {
             require_once(PRESSPERMIT_CLASSPATH . '/Capabilities.php');
             $this->cap_defs = new Permissions\Capabilities();
         }
@@ -125,9 +172,10 @@ class Permissions
     }
 
     public function checkInitInterrupt() {
+        // Image Source Control plugin compat
         if (defined('ISCVERSION') || defined('PRESSPERMIT_LIMIT_ASYNC_UPLOAD_FILTERING')) {
-            if ( is_admin() && isset($_SERVER['SCRIPT_NAME']) && strpos(sanitize_text_field($_SERVER['SCRIPT_NAME']), 'async-upload.php') && !presspermit_empty_POST('attachment_id') && presspermit_is_POST('fetch', 3)) {
-                if ($att = get_post(presspermit_POST_int('attachment_id'))) {
+            if ( is_admin() && isset($_SERVER['SCRIPT_NAME']) && strpos(sanitize_text_field($_SERVER['SCRIPT_NAME']), 'async-upload.php') && !PWP::empty_POST('attachment_id') && PWP::is_POST('fetch', 3)) {
+                if ($att = get_post(PWP::POST_int('attachment_id'))) {
                     global $current_user;
                     if ( $att->post_author == $current_user->ID && ! defined( 'PP_UPLOADS_FORCE_FILTERING' ) ) {
                         return true;
@@ -141,10 +189,10 @@ class Permissions
         }
 
         // Divi Page Builder editor init
-        if (!defined('PRESSPERMIT_DISABLE_DIVI_CLEARANCE') && !presspermit_empty_REQUEST('et_fb') && !presspermit_empty_REQUEST('et_bfb') 
+        if (!defined('PRESSPERMIT_DISABLE_DIVI_CLEARANCE') && !PWP::empty_REQUEST('et_fb') && !PWP::empty_REQUEST('et_bfb') 
 		&& 0 === strpos(esc_url_raw($_SERVER['REQUEST_URI']), '/?page_id') 
-        && !is_admin() && !defined('DOING_AJAX') && presspermit_empty_REQUEST('action') 
-            && presspermit_empty_REQUEST('post') && presspermit_empty_REQUEST('post_id') && presspermit_empty_REQUEST('post_ID') && presspermit_empty_REQUEST('p')
+        && !is_admin() && !defined('DOING_AJAX') && PWP::empty_REQUEST('action') 
+            && PWP::empty_REQUEST('post') && PWP::empty_REQUEST('post_id') && PWP::empty_REQUEST('post_ID') && PWP::empty_REQUEST('p')
         ) {
           return true;
         }
@@ -181,6 +229,7 @@ class Permissions
             'edd_key' => false,
             'supplemental_role_defs' => [], // stored by Capability Manager Enhanced
             'customized_roles' => [],       // stored by Capability Manager Enhanced
+            'pattern_roles_include_generic_rolecaps' => 0, // This is exposed on the Advanced tab, but intentionally excluded from the default_advanced_options array
         ];
 
         // need these keyed in separate array to force defaults if advanced options are disabled
@@ -193,6 +242,7 @@ class Permissions
             'anonymous_unfiltered' => 0,
             'suppress_administrator_metagroups' => 0,
             'users_bulk_groups' => 1,
+            'limit_front_end_term_filtering' => 0,
         ];
         $this->default_advanced_options = apply_filters('presspermit_default_advanced_options', $this->default_advanced_options);
 
@@ -268,7 +318,7 @@ class Permissions
             new Permissions\DB\DatabaseSetup($db_ver);
         }
 
-        if (!empty($check_for_rs_migration) || !presspermit_empty_REQUEST('rs-migration-check')) { // support http arg for test / troubleshooting
+        if (!empty($check_for_rs_migration) || !PWP::empty_REQUEST('rs-migration-check')) { // support http arg for test / troubleshooting
             // This is a first-time activation. If Role Scoper was previously installed, enable Import module by default
             if (get_option('scoper_version')) {
                 update_option('presspermit_offer_rs_migration', true);
@@ -289,9 +339,15 @@ class Permissions
 
         if (!$ver) {
             // first execution after install
-            if (!get_option('ppperm_added_role_caps_21beta')) {
+
+            // Always force this capability into Administrator role
+            if ($role = @get_role('administrator')) {
+                $role->add_cap('pp_manage_settings');
+            }
+
+            if (!get_option('ppperm_added_role_caps_10beta')) {
                 require_once(PRESSPERMIT_CLASSPATH . '/PluginUpdated.php');
-                Permissions\PluginUpdated::populateRoles(true);
+                Permissions\PluginUpdated::populateRoles();
             }
 
             // sanity check, in case activation function misses
@@ -333,7 +389,7 @@ class Permissions
             'presspermit-teaser',
         ];
 
-        return (!empty($args['suppress_filters'])) ? $modules : array_diff($modules, apply_filters('presspermit_unavailable_modules', []));
+        return (!empty($args['force_all'])) ? $modules : array_diff($modules, apply_filters('presspermit_unavailable_modules', []));
     }
 
     public function moduleExists($slug)
@@ -453,6 +509,8 @@ class Permissions
 
     public function supplementUserAllcaps(&$user)
     {
+        global $pagenow;
+
         if ($this->isContentAdministrator()) {
             // give content administrators (users with pp_administer_content capability in WP role) all PP-defined caps and type-specific post caps
             $user->allcaps = apply_filters('presspermit_administrator_caps', array_merge($user->allcaps, $this->cap_defs->all_type_caps));
@@ -464,11 +522,11 @@ class Permissions
 
                 // Avoid redundant execution if no late changes were made to roles, capabilities, types or statuses 
                 if (!defined('PRESSPERMIT_STATUSES_VERSION')) { // Status Control module causes late registration of statuses
-                    $allcaps_hash = md5(serialize($user->allcaps));
-                    $site_roles_hash = md5(serialize($user->site_roles));
-                    $wp_roles_hash = md5(serialize($wp_roles));
-                    $post_types_hash = md5(serialize($wp_post_types));
-                    $post_statuses_hash = md5(serialize($wp_post_statuses));
+                    $allcaps_hash = md5(wp_json_encode($user->allcaps));
+                    $site_roles_hash = md5(wp_json_encode(array_keys($user->site_roles)));
+                    $wp_roles_hash = md5(wp_json_encode(array_keys($wp_roles->role_objects)));
+                    $post_types_hash = md5(wp_json_encode(array_keys($wp_post_types)));
+                    $post_statuses_hash = md5(wp_json_encode(array_keys($wp_post_statuses)));
 
                     static $last_allcaps_hash = null;
                     static $last_site_roles_hash = null;
@@ -525,11 +583,36 @@ class Permissions
                         }
                     }
                 }
+
+                if (!empty($user->ID) && !empty($pagenow) && ('async-upload.php' == $pagenow)) {
+                    if ($type_obj = get_post_type_object('attachment')) {
+                        if (!empty($type_obj->cap->create_posts) && !empty($user->allcaps[$type_obj->cap->create_posts])) {
+                            $add_caps = ['edit_posts' => true];
+							
+							if (defined('PRESSPERMIT_MEDIA_UPLOAD_GRANT_PAGE_EDIT_CAPS')) {
+								$const_val = constant('PRESSPERMIT_MEDIA_UPLOAD_GRANT_PAGE_EDIT_CAPS');
+								$post_type = (post_type_exists($const_val)) ? $const_val : 'page';
+								
+								if ($_type_obj = get_post_type_object($post_type)) {
+									$add_caps = array_merge(
+										$add_caps,
+										array_fill_keys(
+											[$_type_obj->cap->edit_posts, $_type_obj->cap->edit_others_posts, $_type_obj->cap->edit_published_posts],
+											true
+										)
+									);
+								}
+							}
+							
+                            $user->allcaps = array_merge($user->allcaps, $add_caps);
+                        }
+                    }
+                }
             }
 
             // merge in caps from typecast WP role assignments (and also clear false-valued allcaps entries)
             $this->capCaster();
-            $user->allcaps = array_merge(array_diff($user->allcaps, [false, 0]), $this->cap_caster->getUserTypecastCaps($user));
+            $user->allcaps = array_filter(array_merge(array_diff($user->allcaps, [false, 0]), $this->cap_caster->getUserTypecastCaps($user)));
         }
     }
 
@@ -577,17 +660,25 @@ class Permissions
 
         $site_options = [];
 
-        foreach ($wpdb->get_results("SELECT option_name, option_value FROM $wpdb->options WHERE option_name LIKE 'presspermit_%'") as $row)
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $results = $wpdb->get_results("SELECT option_name, option_value FROM $wpdb->options WHERE option_name LIKE 'presspermit_%'");
+
+        foreach ($results as $row) {
             $site_options[$row->option_name] = $row->option_value;
+        }
 
         $this->default_options['post_blockage_priority'] = !empty($site_options['presspermit_legacy_exception_handling']) ? 0 : 1;
 
         // this would normally be handled in PPP, but leave here so bbp roles are never listed as WP role groups
         if (function_exists('bbp_get_version') && version_compare(bbp_get_version(), '2.2', '>=')) {
+            // phpcs Note: retrieved array is sanitized to rule out any vulnerabilities
+
+            // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_unserialize
             $pp_only_roles = (isset($site_options['presspermit_supplemental_role_defs']))
-                ? maybe_unserialize($site_options['presspermit_supplemental_role_defs'])
+                ? array_map('sanitize_key', (array) maybe_unserialize($site_options['presspermit_supplemental_role_defs']))
                 : [];
 
+            // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_serialize
             $site_options['presspermit_supplemental_role_defs'] = serialize(
                 array_merge(
                     $pp_only_roles,
@@ -598,6 +689,9 @@ class Permissions
 
         foreach (array_keys($site_options) as $key) {
             if (is_serialized($site_options[$key])) {
+                // phpcs Note: options are sanitized on access
+
+                // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_unserialize
                 $site_options[$key] = @unserialize($site_options[$key]);
                 if (!is_array($site_options[$key])) {
                     unset($site_options[$key]);
@@ -702,6 +796,14 @@ class Permissions
         $this->site_options[$option_basename] = $value;
     }
 
+    public function checkUserRoleSync($user_id) {
+        global $current_user;
+        
+        if (!$user = $this->getUser($user_id)) {
+            return;
+        }
+    }
+
     public function isUserAdministrator($user_id = false, $args = [])
     {
         return $this->isAdministrator($user_id, 'user', $args);
@@ -714,7 +816,7 @@ class Permissions
 
     public function fltPluginCompatUnfilteredContent($unfiltered) {
         // Public Post Preview: Preserve compat by dropping all Permissions filtering, unless integration is enabled through Pro plugin
-        if (!presspermit_empty_REQUEST('_ppp') && !is_admin() && presspermit_empty_POST() && class_exists('DS_Public_Post_Preview') && !defined('PRESSPERMIT_DISABLE_PPP_PASSTHROUGH')
+        if (!PWP::empty_REQUEST('_ppp') && !is_admin() && PWP::empty_POST() && class_exists('DS_Public_Post_Preview') && !defined('PRESSPERMIT_DISABLE_PPP_PASSTHROUGH')
         && (!defined('PRESSPERMIT_PRO_VERSION') || !presspermit()->moduleActive('compatibility'))
         ) {
             $unfiltered = true;
@@ -727,7 +829,7 @@ class Permissions
     {
         // todo: any other Gutenberg Administrator requests to filter?
         $is_unfiltered = $this->isAdministrator($user_id, 'unfiltered', $args) 
-        && (!defined('REST_REQUEST') || ! REST_REQUEST || (presspermit_empty_REQUEST('parent_exclude') || did_action('presspermit_refresh_administrator_check'))); // page parent dropdown
+        && (!defined('REST_REQUEST') || ! REST_REQUEST || (PWP::empty_REQUEST('parent_exclude') || did_action('presspermit_refresh_administrator_check'))); // page parent dropdown
 
         $args['user_id'] = $user_id;
 
@@ -890,7 +992,7 @@ class Permissions
     }
 
     public function getUnfilteredTaxonomies() {
-    	return apply_filters('presspermit_unfiltered_taxonomies', ['post_status', 'topic-tag', 'author']);
+    	return apply_filters('presspermit_unfiltered_taxonomies', ['post_status', 'post_visibility_pp', 'post_status_core_wp_pp', 'topic-tag', 'author']);
     }
 
     public function isTaxonomyEnabled($taxonomy)
@@ -1003,7 +1105,6 @@ class Permissions
     {
         $defaults = [
             'min_pp_version' => '0', 
-            'min_wp_version' => '0', 
             'min_php_version' => '0', 
             'package' => 'presspermit',
             'plugin_slug' => '', 
@@ -1024,14 +1125,7 @@ class Permissions
         $register = true;
         $error = false;
 
-        if (!PWP::wpVer($min_wp_version)) {
-            $error = is_admin() && presspermit()->admin()->errorNotice(
-                'old_wp',
-                ['module_title' => $label, 'min_version' => $min_wp_version]
-            );
-            $register = false;
-
-        } elseif (version_compare(PRESSPERMIT_VERSION, $min_pp_version, '<')) {
+        if (version_compare(PRESSPERMIT_VERSION, $min_pp_version, '<')) {
             $error = is_admin() && presspermit()->admin()->errorNotice(
                 'old_pp',
                 ['module_title' => $label, 'min_version' => $min_pp_version]

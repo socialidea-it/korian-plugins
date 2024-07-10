@@ -2,57 +2,101 @@
 
 namespace ACP\ListScreen;
 
+use AC;
+use AC\ColumnRepository;
+use AC\ListScreen\ListTable;
+use AC\ListScreen\ManageValue;
+use AC\MetaType;
+use AC\Type\Uri;
 use AC\Type\Url;
+use AC\Type\Url\EditorNetworkColumns;
 use AC\WpListTableFactory;
-use ACP\ListScreen;
-use WP_MS_Users_List_Table;
+use ACP\Column;
+use ACP\Editing;
+use ACP\Export;
+use ACP\Sorting;
 
-class MSUser extends ListScreen\User {
+class MSUser extends AC\ListScreen implements Sorting\ListScreen, Editing\ListScreen, Export\ListScreen,
+                                              ManageValue,
+                                              ListTable
+{
 
-	public function __construct() {
-		parent::__construct();
+    public function __construct()
+    {
+        parent::__construct('wp-ms_users', 'users-network');
 
-		$this->set_label( __( 'Network Users' ) )
-		     ->set_singular_label( __( 'Network User' ) )
-		     ->set_key( 'wp-ms_users' )
-		     ->set_screen_base( 'users-network' )
-		     ->set_screen_id( 'users-network' )
-		     ->set_group( 'network' )
-		     ->set_network_only( true );
-	}
+        $this->label = __('Network Users');
+        $this->singular_label = __('Network User');
+        $this->group = 'network';
+        $this->meta_type = MetaType::USER;
+    }
 
-	/**
-	 * @return WP_MS_Users_List_Table
-	 */
-	protected function get_list_table() {
-		return ( new WpListTableFactory() )->create_network_user_table( $this->get_screen_id() );
-	}
+    public function sorting(Sorting\AbstractModel $model): Sorting\Strategy
+    {
+        return new Sorting\Strategy\User($model);
+    }
 
-	protected function get_admin_url() {
-		return network_admin_url( 'users.php' );
-	}
+    public function editing()
+    {
+        return new Editing\Strategy\User();
+    }
 
-	public function get_edit_link() {
-		$url = new Url\EditorNetwork( 'columns' );
-		$url->add( [
-			'list_screen' => $this->get_key(),
-			'layout_id'   => $this->get_layout_id(),
-		] );
+    public function export()
+    {
+        return new Export\Strategy\User($this);
+    }
 
-		return $url->get_url();
-	}
+    public function manage_value(): AC\Table\ManageValue
+    {
+        return new AC\Table\ManageValue\User(new ColumnRepository($this));
+    }
 
-	/**
-	 * @param int $id
-	 *
-	 * @return string HTML
-	 * @since 4.0
-	 */
-	public function get_single_row( $id ) {
-		ob_start();
-		$this->get_list_table()->single_row( $this->get_object( $id ) );
+    public function list_table(): AC\ListTable
+    {
+        return new AC\ListTable\NetworkUser(
+            (new WpListTableFactory())->create_network_user_table($this->get_screen_id())
+        );
+    }
 
-		return ob_get_clean();
-	}
+    public function get_editor_url(): Uri
+    {
+        return new EditorNetworkColumns($this->key, $this->has_id() ? $this->get_id() : null);
+    }
+
+    public function get_table_url(): Uri
+    {
+        return new Url\ListTableNetwork('users.php', $this->has_id() ? $this->get_id() : null);
+    }
+
+    protected function register_column_types(): void
+    {
+        $this->register_column_types_from_list([
+            Column\CustomField::class,
+            Column\Actions::class,
+            Column\User\CommentCount::class,
+            Column\User\Description::class,
+            Column\User\DisplayName::class,
+            Column\User\Email::class,
+            Column\User\FirstName::class,
+            Column\User\FirstPost::class,
+            Column\User\FullName::class,
+            Column\User\ID::class,
+            Column\User\LastName::class,
+            Column\User\LastPost::class,
+            Column\User\Login::class,
+            Column\User\Name::class,
+            Column\User\Nicename::class,
+            Column\User\Nickname::class,
+            Column\User\PostCount::class,
+            Column\User\Posts::class,
+            Column\User\Registered::class,
+            Column\User\RichEditing::class,
+            Column\User\Role::class,
+            Column\User\ShowToolbar::class,
+            Column\User\Url::class,
+            Column\User\Username::class,
+            Column\NetworkUser\Blogs::class,
+        ]);
+    }
 
 }

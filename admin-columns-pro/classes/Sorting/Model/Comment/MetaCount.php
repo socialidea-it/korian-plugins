@@ -1,60 +1,46 @@
 <?php
 
+declare(strict_types=1);
+
 namespace ACP\Sorting\Model\Comment;
 
-use ACP\Sorting\AbstractModel;
+use ACP\Query\Bindings;
+use ACP\Sorting\Model\QueryBindings;
+use ACP\Sorting\Model\SqlOrderByFactory;
+use ACP\Sorting\Type\Order;
 
 /**
  * Sort the comment list table on the number of times the meta_key is used by a comment.
- * @since 5.2
  */
-class MetaCount extends AbstractModel {
+class MetaCount implements QueryBindings
+{
 
-	/**
-	 * @var string
-	 */
-	private $meta_key;
+    private $meta_key;
 
-	/**
-	 * @param string $meta_key
-	 */
-	public function __construct( $meta_key ) {
-		parent::__construct();
+    public function __construct(string $meta_key)
+    {
+        $this->meta_key = $meta_key;
+    }
 
-		$this->meta_key = $meta_key;
-	}
+    public function create_query_bindings(Order $order): Bindings
+    {
+        global $wpdb;
 
-	public function get_sorting_vars() {
-		add_filter( 'comments_clauses', [ $this, 'comments_clauses_callback' ] );
+        $bindings = new Bindings();
+        $alias = $bindings->get_unique_alias('metacount');
 
-		return [];
-	}
+        $bindings->join(
+            $wpdb->prepare(
+                "LEFT JOIN $wpdb->commentmeta AS $alias ON $wpdb->comments.comment_ID = $alias.comment_id AND $alias.meta_key = %s",
+                $this->meta_key
+            )
+        );
+        $bindings->group_by("$wpdb->comments.comment_ID");
+        $bindings->order_by(
+            SqlOrderByFactory::create_with_count("$alias.meta_key", (string)$order)
+        );
 
-	public function comments_clauses_callback( $clauses ) {
-		global $wpdb;
-
-		$order = esc_sql( $this->get_order() );
-
-		$join_type = $this->show_empty
-			? 'LEFT'
-			: 'INNER';
-
-		$clauses['fields'] .= ", COUNT( acsort_commentmeta.meta_key ) AS acsort_commentmeta";
-		$clauses['join'] .= $wpdb->prepare( "
-			{$join_type} JOIN {$wpdb->commentmeta} AS acsort_commentmeta ON {$wpdb->comments}.comment_ID = acsort_commentmeta.comment_id
-			AND acsort_commentmeta.meta_key = %s
-		", $this->meta_key );
-
-		if ( ! $this->show_empty ) {
-			$clauses['join'] .= " AND acsort_commentmeta.meta_value <> ''";
-		}
-
-		$clauses['groupby'] = "{$wpdb->comments}.comment_ID";
-		$clauses['orderby'] = "acsort_commentmeta {$order}, {$wpdb->comments}.comment_ID {$order}";
-
-		remove_filter( 'comments_clauses', [ $this, __FUNCTION__ ] );
-
-		return $clauses;
-	}
+        return $bindings;
+    }
 
 }

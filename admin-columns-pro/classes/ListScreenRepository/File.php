@@ -1,253 +1,206 @@
 <?php
 
+declare(strict_types=1);
+
 namespace ACP\ListScreenRepository;
 
-use AC;
 use AC\Exception\MissingListScreenIdException;
-use AC\Exception\SourceNotAvailableException;
 use AC\ListScreen;
 use AC\ListScreenCollection;
-use AC\ListScreenRepository\SourceAware;
+use AC\ListScreenRepository\ListScreenRepositoryTrait;
+use AC\ListScreenRepositoryWritable;
 use AC\OpCacheInvalidateTrait;
-use AC\Type\ListScreenId;
 use ACP\Exception\DecoderNotFoundException;
 use ACP\Exception\DirectoryNotWritableException;
+use ACP\Exception\FailedToCreateDirectoryException;
+use ACP\Exception\FailedToSaveSegmentException;
 use ACP\Exception\FileNotWritableException;
+use ACP\ListScreenPreferences;
+use ACP\Search\SegmentCollection;
+use ACP\Search\SegmentRepository;
+use ACP\Storage;
+use ACP\Storage\AbstractDecoderFactory;
+use ACP\Storage\Decoder\ListScreenDecoder;
 use ACP\Storage\Directory;
-use ACP\Storage\ListScreen\DecoderFactory;
-use ACP\Storage\ListScreen\Encoder;
-use ACP\Storage\ListScreen\Serializer;
-use ACP\Storage\ListScreen\Unserializer;
-use LogicException;
-use SplFileInfo;
+use ACP\Storage\EncoderFactory;
+use ACP\Storage\Serializer;
+use DirectoryIterator;
 
-final class File implements AC\ListScreenRepositoryWritable, SourceAware {
+final class File implements ListScreenRepositoryWritable, SourceAware
+{
 
-	use OpCacheInvalidateTrait;
+    use SegmentTrait;
+    use ListScreenRepositoryTrait;
+    use FilteredListScreenRepositoryTrait;
+    use OpCacheInvalidateTrait;
 
-	/**
-	 * @var Directory
-	 */
-	private $directory;
+    /**
+     * @var ListScreenCollection
+     */
+    private $list_screens;
 
-	/**
-	 * @var null
-	 */
-	private $extension;
+    /**
+     * @var SourceCollection
+     */
+    private $sources;
 
-	/**
-	 * @var DecoderFactory
-	 */
-	private $decoder_factory;
+    private $directory;
 
-	/**
-	 * @var Unserializer|null
-	 */
-	private $unserializer;
+    private $decoder_factory;
 
-	/**
-	 * @var Encoder
-	 */
-	private $encoder;
+    private $encoder_factory;
 
-	/**
-	 * @var Serializer
-	 */
-	private $serializer;
+    private $serializer;
 
-	/**
-	 * @param Directory         $directory
-	 * @param string            $extension
-	 * @param Encoder           $encoder
-	 * @param DecoderFactory    $decoder_factory
-	 * @param Serializer        $serializer
-	 * @param Unserializer|null $unserializer
-	 */
-	public function __construct( Directory $directory, $extension, Encoder $encoder, DecoderFactory $decoder_factory, Serializer $serializer, Unserializer $unserializer = null ) {
-		$this->directory = $directory;
-		$this->extension = $extension;
-		$this->encoder = $encoder;
-		$this->decoder_factory = $decoder_factory;
-		$this->serializer = $serializer;
-		$this->unserializer = $unserializer;
+    public function __construct(
+        Directory $directory,
+        AbstractDecoderFactory $decoder_factory,
+        EncoderFactory $encoder_factory,
+        Serializer $serializer,
+        SegmentRepository\FileFactory $file_factory
+    ) {
+        $this->directory = $directory;
+        $this->decoder_factory = $decoder_factory;
+        $this->encoder_factory = $encoder_factory;
+        $this->serializer = $serializer;
+        $this->segment_repository = $file_factory->create(
+            $directory,
+            $decoder_factory,
+            $encoder_factory,
+            $serializer
+        );
+    }
 
-		$this->validate();
-	}
+    /**
+     * @throws FileNotWritableException
+     * @throws DirectoryNotWritableException
+     * @throws FailedToCreateDirectoryException
+     * @throws FailedToSaveSegmentException
+     */
+    public function save(ListScreen $list_screen): void
+    {
+        if ( ! $this->directory->exists()) {
+            $this->directory->create();
+        }
 
-	private function validate() {
-		if ( $this->extension !== null && ! preg_match( '/^[a-z0-9]{2,4}$/', $this->extension ) ) {
-			throw new LogicException( 'Invalid extension found.' );
-		}
-	}
+        if ( ! $this->directory->is_writable()) {
+            throw new DirectoryNotWritableException($this->directory->get_path());
+        }
 
-	/**
-	 * @param ListScreenId $id
-	 *
-	 * @return ListScreen|null
-	 */
-	public function find( ListScreenId $id ) {
-		foreach ( $this->find_all() as $list_screen ) {
-			if ( $id->equals( $list_screen->get_id() ) ) {
-				return $list_screen;
-			}
-		}
+        if ( ! $list_screen->has_id()) {
+            throw MissingListScreenIdException::from_saving_list_screen();
+        }
 
-		return null;
-	}
+        $encoder = $this->encoder_factory
+            ->create()
+            ->set_list_screen($list_screen);
 
-	/**
-	 * @param ListScreenId $id
-	 *
-	 * @return bool
-	 */
-	public function exists( ListScreenId $id ) {
-		foreach ( $this->find_all() as $list_screen ) {
-			if ( $id->equals( $list_screen->get_id() ) ) {
-				return true;
-			}
-		}
+        $file = sprintf(
+            '%s/%s.%s',
+            $this->directory->get_path(),
+            $list_screen->get_id(),
+            $this->get_file_extension()
+        );
 
-		return false;
-	}
+        $result = file_put_contents(
+            $file,
+            $this->serializer->serialize($encoder->encode())
+        );
 
-	public function find_all( array $args = [] ) {
-		$args = array_merge( [
-			self::KEY => null,
-		], $args );
+        if ($result === false) {
+            throw FileNotWritableException::from_saving_list_screen($list_screen);
+        }
 
-		$list_screens = new ListScreenCollection();
+        $this->opcache_invalidate($file);
 
-		foreach ( $this->get_files() as $file ) {
-			$encoded_list_screen = $this->unserializer
-				? $this->unserializer->unserialize( $file->openFile()->fread( $file->getSize() ) )
-				: require( $file->getRealPath() );
+        $segments = $list_screen->get_preference(ListScreenPreferences::SHARED_SEGMENTS);
 
-			try {
-				$decoder = $this->decoder_factory->create( $encoded_list_screen );
-			} catch ( DecoderNotFoundException $e ) {
-				continue;
-			}
+        if ($segments instanceof SegmentCollection) {
+            $this->save_segments($segments, $list_screen->get_id());
+        }
+    }
 
-			if ( ! $decoder->can_decode( $encoded_list_screen ) ) {
-				continue;
-			}
+    /**
+     * @throws FileNotWritableException
+     */
+    public function delete(ListScreen $list_screen): void
+    {
+        $this->parse_directory();
 
-			$list_screen = $decoder->decode( $encoded_list_screen );
+        if ( ! $this->sources->contains($list_screen->get_id())) {
+            throw FileNotWritableException::from_removing_list_screen($list_screen);
+        }
 
-			if ( $args[ self::KEY ] && $list_screen->get_key() !== $args[ self::KEY ] ) {
-				continue;
-			}
+        $path = $this->sources->get($list_screen->get_id());
 
-			$list_screens->add( $list_screen );
-		}
+        $this->opcache_invalidate($path);
 
-		return $list_screens;
-	}
+        $result = unlink($path);
 
-	/**
-	 * @param ListScreen $list_screen
-	 */
-	public function save( ListScreen $list_screen ) {
-		if ( ! $this->directory->exists() ) {
-			$this->directory->create();
-		}
+        if ($result === false) {
+            throw FileNotWritableException::from_removing_list_screen($list_screen);
+        }
 
-		if ( ! $this->directory->get_info()->isWritable() ) {
-			throw new DirectoryNotWritableException( $this->directory->get_path() );
-		}
+        $this->segment_repository->delete_all($list_screen->get_id());
+    }
 
-		if ( ! $list_screen->has_id() ) {
-			throw MissingListScreenIdException::from_saving_list_screen();
-		}
+    protected function get_file_extension(): string
+    {
+        return 'php';
+    }
 
-		$file = $this->create_file_name(
-			$this->directory->get_path(),
-			$list_screen->get_id()
-		);
+    protected function find_all_from_source(): ListScreenCollection
+    {
+        $this->parse_directory();
 
-		$result = file_put_contents(
-			$file,
-			$this->serializer->serialize( $this->encoder->encode( $list_screen ) )
-		);
+        return $this->list_screens;
+    }
 
-		if ( $result === false ) {
-			throw FileNotWritableException::from_saving_list_screen( $list_screen );
-		}
+    public function get_sources(): SourceCollection
+    {
+        $this->parse_directory();
 
-		$this->opcache_invalidate( $file );
-	}
+        return $this->sources;
+    }
 
-	/**
-	 * @param ListScreen $list_screen
-	 */
-	public function delete( ListScreen $list_screen ) {
-		$file = $this->create_file_name(
-			$this->directory->get_path(),
-			$list_screen->get_id()
-		);
+    private function parse_directory(): void
+    {
+        $this->list_screens = new ListScreenCollection();
+        $this->sources = new SourceCollection();
 
-		$this->opcache_invalidate( $file );
+        if ( ! $this->directory->is_readable()) {
+            return;
+        }
 
-		$result = unlink( $file );
+        $iterator = new Storage\FileIterator(
+            new DirectoryIterator($this->directory->get_path()),
+            $this->get_file_extension()
+        );
 
-		if ( $result === false ) {
-			throw FileNotWritableException::from_removing_list_screen( $list_screen );
-		}
-	}
+        foreach ($iterator as $file) {
+            $encoded_screen = require($file->getRealPath());
 
-	/**
-	 * Get all files and do superficial checks on them
-	 * @return SplFileInfo[]
-	 */
-	private function get_files() {
-		$files = [];
+            try {
+                $decoder = $this->decoder_factory->create($encoded_screen);
+            } catch (DecoderNotFoundException $e) {
+                continue;
+            }
 
-		if ( $this->directory->is_readable() ) {
-			foreach ( $this->directory->get_files() as $file ) {
-				if ( ! $file->isFile() || ! $file->isReadable() || $file->getSize() === 0 ) {
-					continue;
-				}
+            if ( ! $decoder instanceof ListScreenDecoder || ! $decoder->has_list_screen()) {
+                continue;
+            }
 
-				if ( $this->extension !== null && $this->extension !== $file->getExtension() ) {
-					continue;
-				}
+            $list_screen = $decoder->get_list_screen();
+            $list_screen->set_preference(
+                ListScreenPreferences::SHARED_SEGMENTS,
+                $this->segment_repository->find_all_shared(
+                    $list_screen->get_id()
+                )
+            );
 
-				$files[] = $file->getFileInfo();
-			}
-		}
+            $this->list_screens->add($list_screen);
+            $this->sources->add($list_screen->get_id(), $file->getRealPath());
+        }
+    }
 
-		return $files;
-	}
-
-	/**
-	 * @param string       $path
-	 * @param ListScreenId $id
-	 *
-	 * @return string
-	 */
-	private function create_file_name( $path, ListScreenId $id ) {
-		return sprintf( '%s/%s.%s', $path, $id->get_id(), $this->extension );
-	}
-
-	/**
-	 * @return Directory
-	 */
-	public function get_directory() {
-		return $this->directory;
-	}
-
-	public function get_source( ListScreenId $id ) {
-		if ( ! $this->has_source( $id ) ) {
-			throw new SourceNotAvailableException();
-		}
-
-		return $this->create_file_name(
-			$this->directory->get_path(),
-			$id
-		);
-	}
-
-	public function has_source( ListScreenId $id ) {
-		return $this->exists( $id );
-	}
 }

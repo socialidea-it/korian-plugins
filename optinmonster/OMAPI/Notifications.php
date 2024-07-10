@@ -313,7 +313,8 @@ class OMAPI_Notifications {
 			return false;
 		}
 
-		if ( ! empty( $dismissed ) && in_array( $notification['id'], $dismissed ) ) { // phpcs:ignore WordPress.PHP.StrictInArray.MissingTrueStrict
+		// phpcs:ignore WordPress.PHP.StrictInArray.MissingTrueStrict
+		if ( ! empty( $dismissed ) && in_array( $notification['id'], $dismissed ) ) {
 
 			// Ignore if notification has already been dismissed.
 			return false;

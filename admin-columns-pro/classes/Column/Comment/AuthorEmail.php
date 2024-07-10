@@ -3,31 +3,34 @@
 namespace ACP\Column\Comment;
 
 use AC;
+use ACP\ConditionalFormat;
 use ACP\Editing;
-use ACP\Filtering;
 use ACP\Search;
 use ACP\Sorting;
 
-/**
- * @since 4.0
- */
 class AuthorEmail extends AC\Column\Comment\AuthorEmail
-	implements Editing\Editable, Filtering\Filterable, Sorting\Sortable, Search\Searchable {
+    implements Editing\Editable, Sorting\Sortable, Search\Searchable,
+               ConditionalFormat\Formattable
+{
 
-	public function sorting() {
-		return new Sorting\Model\OrderBy( 'comment_author_email' );
-	}
+    use ConditionalFormat\ConditionalFormatTrait;
 
-	public function editing() {
-		return new Editing\Service\Basic( new Editing\View\Email(), new Editing\Storage\Post\Field( 'comment_author_email' ) );
-	}
+    public function sorting()
+    {
+        return new Sorting\Model\Comment\OrderByNonUnique('comment_author_email');
+    }
 
-	public function filtering() {
-		return new Filtering\Model\Comment\AuthorEmail( $this );
-	}
+    public function editing()
+    {
+        return new Editing\Service\Basic(
+            new Editing\View\Email(),
+            new Editing\Storage\Post\Field('comment_author_email')
+        );
+    }
 
-	public function search() {
-		return new Search\Comparison\Comment\Email();
-	}
+    public function search()
+    {
+        return new Search\Comparison\Comment\Email();
+    }
 
 }

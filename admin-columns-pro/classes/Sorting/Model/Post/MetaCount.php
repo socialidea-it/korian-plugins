@@ -1,62 +1,46 @@
 <?php
 
+declare(strict_types=1);
+
 namespace ACP\Sorting\Model\Post;
 
-use ACP\Sorting\AbstractModel;
+use ACP\Query\Bindings;
+use ACP\Sorting\Model\QueryBindings;
+use ACP\Sorting\Model\SqlOrderByFactory;
+use ACP\Sorting\Type\Order;
 
 /**
  * Sort a user list table on the number of times the meta_key is used by a user.
- * @since 5.2
  */
-class MetaCount extends AbstractModel {
+class MetaCount implements QueryBindings
+{
 
-	/**
-	 * @var string
-	 */
-	protected $meta_key;
+    protected $meta_key;
 
-	/**
-	 * @param string
-	 */
-	public function __construct( $meta_key ) {
-		parent::__construct();
+    public function __construct(string $meta_key)
+    {
+        $this->meta_key = $meta_key;
+    }
 
-		$this->meta_key = $meta_key;
-	}
+    public function create_query_bindings(Order $order): Bindings
+    {
+        global $wpdb;
 
-	public function get_sorting_vars() {
-		add_filter( 'posts_clauses', [ $this, 'sorting_clauses_callback' ] );
+        $bindings = new Bindings();
+        $alias = $bindings->get_unique_alias('mcount');
 
-		return [
-			'suppress_filters' => false,
-		];
-	}
+        $bindings->join(
+            $wpdb->prepare(
+                "LEFT JOIN $wpdb->postmeta AS $alias ON $wpdb->posts.ID = $alias.post_id AND $alias.meta_key = %s",
+                $this->meta_key
+            )
+        );
+        $bindings->group_by("$wpdb->posts.ID");
+        $bindings->order_by(
+            SqlOrderByFactory::create_with_count("$alias.meta_key", (string)$order)
+        );
 
-	public function sorting_clauses_callback( $clauses ) {
-		global $wpdb;
-
-		$order = esc_sql( $this->get_order() );
-
-		$join_type = $this->show_empty
-			? 'LEFT'
-			: 'INNER';
-
-		$clauses['fields'] .= ", COUNT( acsort_postmeta.meta_key ) AS acsort_metacount";
-		$clauses['join'] .= $wpdb->prepare( "
-			{$join_type} JOIN {$wpdb->postmeta} AS acsort_postmeta ON {$wpdb->posts}.ID = acsort_postmeta.post_id
-			AND acsort_postmeta.meta_key = %s
-		", $this->meta_key );
-
-		if ( ! $this->show_empty ) {
-			$clauses['join'] .= " AND acsort_postmeta.meta_value <> ''";
-		}
-
-		$clauses['groupby'] = "{$wpdb->posts}.ID";
-		$clauses['orderby'] = "acsort_metacount {$order}, {$wpdb->posts}.ID {$order}";
-
-		remove_filter( 'posts_clauses', [ $this, __FUNCTION__ ] );
-
-		return $clauses;
-	}
+        return $bindings;
+    }
 
 }

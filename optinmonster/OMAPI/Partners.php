@@ -120,9 +120,9 @@ class OMAPI_Partners {
 	}
 
 	/**
-	 * The partner urls are no longer used, but this method is in place to ensure
-	 * back-compatibility with the optin_monster_action_link filter, to determine
-	 * if certain partner features are visible.
+	 * Get the partner url.
+	 *
+	 * Not used directly, but parsed for query args.
 	 *
 	 * @since  2.0.0
 	 *
@@ -155,9 +155,9 @@ class OMAPI_Partners {
 	}
 
 	/**
-	 * The partner urls are no longer used, but this method is in place to ensure
-	 * back-compatibility with the optin_monster_action_link filter, to determine
-	 * if certain partner features are visible.
+	 * Returns partner url, if it exists.
+	 *
+	 * Not used directly, but parsed for query args.
 	 *
 	 * @since  2.0.0
 	 *
@@ -175,6 +175,7 @@ class OMAPI_Partners {
 	 * Get the Partner ID.
 	 *
 	 * @since  2.0.0
+	 * @since 2.15.0 Fallback to parsing the partner url for the ID.
 	 *
 	 * @return string
 	 */
@@ -182,6 +183,26 @@ class OMAPI_Partners {
 		$id = self::get_trial_id();
 		if ( empty( $id ) ) {
 			$id = self::get_sas_id();
+		}
+
+		if ( empty( $id ) ) {
+
+			// Try to get the ID from the partner url.
+			$url = self::has_partner_url();
+			if ( $url ) {
+				$parsed = wp_parse_url( $url );
+				if (
+					! empty( $parsed['host'] )
+					// Only get the ID if it's a shareasale url.
+					&& false !== stripos( $parsed['host'], 'shareasale.com' )
+					&& ! empty( $parsed['query'] )
+				) {
+					$args = wp_parse_args( $parsed['query'] );
+					if ( ! empty( $args['u'] ) ) {
+						$id = $args['u'];
+					}
+				}
+			}
 		}
 
 		return $id;

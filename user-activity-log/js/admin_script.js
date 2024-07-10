@@ -228,6 +228,43 @@ jQuery( document ).ready(
 				);
 			}
 		);
+
+		jQuery('.check-column.ual-check-user > input[type="checkbox"][name="usersID[]"]').change(function(){
+			if ( jQuery('.check-column.ual-check-user > input[type="checkbox"][name="usersID[]"]:checked').length != jQuery('.check-column.ual-check-user > input[type="checkbox"][name="usersID[]"]').length){
+				jQuery(this).parents("table").find('.check-column[scope="col"]  > input[type="checkbox"]').prop('checked', 0);
+			}
+		});
+
+		jQuery('.check-column.ual-check-user > input[type="checkbox"][name="rolesID[]"]').change(function(){
+			if ( jQuery('.check-column.ual-check-user > input[type="checkbox"][name="rolesID[]"]:checked').length != jQuery('.check-column.ual-check-user > input[type="checkbox"][name="rolesID[]"]').length){
+				jQuery(this).parents("table").find('.check-column[scope="col"]  > input[type="checkbox"]').prop('checked', 0);
+			}
+		});
+
+		jQuery('select[name="logs_failed_login"]').on('change', function() {
+			if( 'no' == jQuery(this).val() ) {
+				jQuery('.no_of_failed_login').hide();
+			} else {
+				jQuery('.no_of_failed_login').show();
+			}
+		});
+		if( 'no' == jQuery('select[name="logs_failed_login"]').val() ) {
+			jQuery('.no_of_failed_login').hide();
+		} else {
+			jQuery('.no_of_failed_login').show();
+		}
+		jQuery('input[name="ualAllowIp"]').on('change', function() {
+			if ( jQuery(this).is(":checked") ) {
+				jQuery('.ual_get_ips').show();
+			} else {
+				jQuery('.ual_get_ips').hide();
+			}
+		});
+		if( jQuery('input[name="ualAllowIp"]').is(":checked") ) {
+			jQuery('.ual_get_ips').show();
+		} else {
+			jQuery('.ual_get_ips').hide();
+		}
 	}
 );
 

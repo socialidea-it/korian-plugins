@@ -1,64 +1,59 @@
 <?php
 
+declare(strict_types=1);
+
 namespace ACP\Sorting\Model\Comment;
 
-use ACP\Sorting\AbstractModel;
+use ACP\Query\Bindings;
+use ACP\Sorting\Model\QueryBindings;
+use ACP\Sorting\Model\SqlOrderByFactory;
 use ACP\Sorting\Type\CastType;
 use ACP\Sorting\Type\DataType;
+use ACP\Sorting\Type\Order;
 
-class Meta extends AbstractModel {
+class Meta implements QueryBindings
+{
 
-	/**
-	 * @var string
-	 */
-	private $meta_key;
+    private $meta_key;
 
-	public function __construct( $meta_key, DataType $data_type = null ) {
-		parent::__construct( $data_type );
+    protected $data_type;
 
-		$this->meta_key = $meta_key;
-	}
+    public function __construct(string $meta_key, DataType $data_type = null)
+    {
+        $this->meta_key = $meta_key;
+        $this->data_type = $data_type ?: new DataType(DataType::STRING);
+    }
 
-	public function get_sorting_vars() {
-		add_filter( 'comments_clauses', [ $this, 'comments_clauses_callback' ] );
+    public function create_query_bindings(Order $order): Bindings
+    {
+        global $wpdb;
 
-		return [];
-	}
+        $bindings = new Bindings();
 
-	public function comments_clauses_callback( $clauses ) {
-		global $wpdb;
+        $bindings->join(
+            $wpdb->prepare(
+                "LEFT JOIN $wpdb->commentmeta AS acsort_commentmeta ON $wpdb->comments.comment_ID = acsort_commentmeta.comment_id AND acsort_commentmeta.meta_key = %s",
+                $this->meta_key
+            )
+        );
+        $bindings->group_by("$wpdb->comments.comment_ID");
+        $bindings->order_by(
+            $this->get_order_by($order) . sprintf(", $wpdb->comments.comment_ID %s", $order)
+        );
 
-		$join_type = $this->show_empty
-			? 'LEFT'
-			: 'INNER';
+        return $bindings;
+    }
 
-		$clauses['join'] .= $wpdb->prepare( "
-			{$join_type} JOIN {$wpdb->commentmeta} AS acsort_commentmeta ON {$wpdb->comments}.comment_ID = acsort_commentmeta.comment_id
-			AND acsort_commentmeta.meta_key = %s
-		", $this->meta_key );
+    protected function get_order_by(Order $order): string
+    {
+        return SqlOrderByFactory::create(
+            "acsort_commentmeta.meta_value",
+            (string)$order,
+            [
+                'cast_type' => (string)CastType::create_from_data_type($this->data_type),
+            ]
 
-		if ( ! $this->show_empty ) {
-			$clauses['join'] .= " AND acsort_commentmeta.meta_value <> ''";
-		}
-
-		$clauses['orderby'] = $this->get_order_by();
-		$clauses['groupby'] = "{$wpdb->comments}.comment_ID";
-
-		remove_filter( 'comments_clauses', [ $this, __FUNCTION__ ] );
-
-		return $clauses;
-	}
-
-	/**
-	 * @return string
-	 */
-	protected function get_order_by() {
-		global $wpdb;
-
-		$order = esc_sql( $this->get_order() );
-		$cast_type = CastType::create_from_data_type( $this->data_type )->get_value();
-
-		return sprintf( "CAST( acsort_commentmeta.meta_value AS %s ) $order, {$wpdb->comments}.comment_ID $order", $cast_type );
-	}
+        );
+    }
 
 }

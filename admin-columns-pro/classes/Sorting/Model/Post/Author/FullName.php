@@ -2,36 +2,42 @@
 
 namespace ACP\Sorting\Model\Post\Author;
 
-use ACP;
-use ACP\Sorting\AbstractModel;
+use ACP\Query\Bindings;
+use ACP\Sorting\Model\QueryBindings;
+use ACP\Sorting\Model\SqlOrderByFactory;
+use ACP\Sorting\Type\Order;
 
-class FullName extends AbstractModel {
+class FullName implements QueryBindings
+{
 
-	public function get_sorting_vars() {
-		add_filter( 'posts_clauses', [ $this, 'sorting_clauses_callback' ] );
+    public function create_query_bindings(Order $order): Bindings
+    {
+        global $wpdb;
 
-		return [
-			'suppress_filters' => false,
-		];
-	}
+        $bindings = new Bindings();
 
-	public function sorting_clauses_callback( $clauses ) {
-		global $wpdb;
+        $alias_firstname = $bindings->get_unique_alias('firstname');
+        $alias_lastname = $bindings->get_unique_alias('lastname');
 
-		$order = esc_sql( $this->get_order() );
+        $bindings->join(
+            "
+            INNER JOIN $wpdb->usermeta AS $alias_firstname ON $wpdb->posts.post_author = $alias_firstname.user_id 
+				AND $alias_firstname.meta_key = 'first_name'
+			INNER JOIN $wpdb->usermeta AS $alias_lastname ON $wpdb->posts.post_author = $alias_lastname.user_id 
+				AND $alias_lastname.meta_key = 'last_name'
+		    "
+        );
+        $bindings->order_by(
+            SqlOrderByFactory::create_with_concat(
+                [
+                    "$alias_firstname.meta_value",
+                    "$alias_lastname.meta_value",
+                ],
+                (string)$order
+            )
+        );
 
-		$clauses['fields'] .= ", concat( acsort_usermeta1.meta_value, acsort_usermeta2.meta_value ) AS acsort_fullname";
-		$clauses['join'] .= "
-			INNER JOIN {$wpdb->usermeta} AS acsort_usermeta1 ON {$wpdb->posts}.post_author = acsort_usermeta1.user_id 
-				AND acsort_usermeta1.meta_key = 'first_name'
-			INNER JOIN {$wpdb->usermeta} AS acsort_usermeta2 ON {$wpdb->posts}.post_author = acsort_usermeta2.user_id 
-				AND acsort_usermeta2.meta_key = 'last_name'
-		";
-		$clauses['orderby'] = "acsort_fullname $order, {$wpdb->posts}.ID $order";
-
-		remove_filter( 'posts_clauses', [ $this, __FUNCTION__ ] );
-
-		return $clauses;
-	}
+        return $bindings;
+    }
 
 }

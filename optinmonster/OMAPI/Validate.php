@@ -63,6 +63,8 @@ class OMAPI_Validate {
 		// Add validation messages.
 		add_action( 'admin_notices', array( $this, 'notices' ) );
 
+		// Add nonce check to dismiss-wp-pointer for the "please connect nag" dismissal.
+		add_action( 'wp_ajax_dismiss-wp-pointer', array( $this, 'validate_please_connect_notice_dismiss' ), 0 );
 	}
 
 	/**
@@ -207,7 +209,7 @@ class OMAPI_Validate {
 					<p>' . esc_html__( 'Please connect to or create an OptinMonster account to start using OptinMonster. This will enable you to start turning website visitors into subscribers & customers.', 'optin-monster-api' ) . '
 					</p>
 					<p>
-						<a href="' . esc_url_raw( OMAPI_Urls::onboarding() ) . '" class="button button-primary button-large omapi-new-optin" title="' . esc_html__( 'Get Started', 'optin-monster-api' ) . '">' . esc_html__( 'Get Started' ) . '</a>
+						<a href="' . esc_url_raw( OMAPI_Urls::onboarding() ) . '" class="button button-primary button-large omapi-new-optin" title="' . esc_html__( 'Get Started', 'optin-monster-api' ) . '">' . esc_html__( 'Get Started', 'optin-monster-api' ) . '</a>
 						<a style="margin-left:8px" href="' . esc_url( OMAPI_Urls::onboarding() ) . '" title="' . esc_attr__( 'Learn More', 'optin-monster-api' ) . '">' . esc_html__( 'Learn More &rarr;', 'optin-monster-api' ) . '</a>
 					</p>
 				</div>
@@ -229,6 +231,7 @@ class OMAPI_Validate {
 				// Set the pointer to be closed for this user
 				jQuery.post( ajaxurl, {
 					pointer: 'omapi_please_connect_notice',
+					_wpnonce: '<?php echo esc_js( wp_create_nonce( 'dismiss_pointer' ) ); ?>',
 					action: 'dismiss-wp-pointer'
 				});
 				jQuery( '#omapi-please-connect-notice' ).fadeTo( 100, 0, function() {
@@ -278,4 +281,18 @@ class OMAPI_Validate {
 		return false;
 	}
 
+	/**
+	 * Validates the please connect notice dismissal.
+	 *
+	 * @since 2.16.0
+	 *
+	 * @return void
+	 */
+	public function validate_please_connect_notice_dismiss() {
+		if ( isset( $_POST['pointer'] ) && 'omapi_please_connect_notice' !== $_POST['pointer'] ) {
+			return;
+		}
+
+		check_ajax_referer( 'dismiss_pointer' );
+	}
 }

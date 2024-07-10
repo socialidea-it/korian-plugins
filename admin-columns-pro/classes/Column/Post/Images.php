@@ -3,175 +3,149 @@
 namespace ACP\Column\Post;
 
 use AC;
+use AC\View;
+use ACP\ConditionalFormat;
 use ACP\Export;
 use ACP\Sorting;
 
-/**
- * @since 4.0.8
- */
 class Images extends AC\Column
-	implements Sorting\Sortable, AC\Column\AjaxValue, Export\Exportable {
+    implements Sorting\Sortable, AC\Column\AjaxValue, Export\Exportable, ConditionalFormat\Formattable
+{
 
-	public function __construct() {
-		$this->set_type( 'column-images' );
-		$this->set_label( __( 'Images', 'codepress-admin-columns' ) );
-	}
+    use ConditionalFormat\ConditionalFormatTrait;
 
-	public function sorting() {
-		return new Sorting\Model\Post\ImageFileSizes();
-	}
+    public function __construct()
+    {
+        $this->set_type('column-images');
+        $this->set_label(__('Images', 'codepress-admin-columns'));
+    }
 
-	public function export() {
-		return new Export\Model\Post\ImageFileSizes( $this );
-	}
+    public function sorting()
+    {
+        return new Sorting\Model\Post\ImageFileSizes();
+    }
 
-	/**
-	 * Returns the file size and dimensions of the image with a link to the edit media page.
-	 *
-	 * @param int $id
-	 *
-	 * @return string
-	 */
-	public function get_ajax_value( $id ) {
-		$items = [];
+    public function export()
+    {
+        return new Export\Model\Post\ImageFileSizes($this);
+    }
 
-		foreach ( $this->get_image_urls( $id ) as $url ) {
-			$size = ac_helper()->image->get_local_image_size( $url );
+    private function get_image_sizes(array $urls): array
+    {
+        return array_filter(array_map([ac_helper()->image, 'get_local_image_size'], $urls));
+    }
 
-			if ( ! $size ) {
-				continue;
-			}
+    public function get_value($id)
+    {
+        $id = (int)$id;
 
-			$dimensions = false;
-			$extension = false;
-			$link = false;
-			$size_int = false;
-			$size_unit = false;
+        $urls = $this->get_image_urls($id);
+        $count = count($urls);
 
-			if ( $info = ac_helper()->image->get_local_image_info( $url ) ) {
-				$dimensions = $info[0] . ' x ' . $info[1];
-				$extension = image_type_to_extension( $info[2], false );
-			}
+        if ($count < 1) {
+            return $this->get_empty_char();
+        }
 
-			$attachment_id = ac_helper()->media->get_attachment_id_by_url( $url, true );
+        $sizes = $this->get_image_sizes($urls);
 
-			if ( $attachment_id ) {
-				$link = get_edit_post_link( $attachment_id );
-			}
+        if ( ! $sizes) {
+            return $this->get_empty_char();
+        }
 
-			if ( $file_size = ac_helper()->file->get_readable_filesize_as_array( $size ) ) {
-				$size_int = $file_size[0];
-				$size_unit = $file_size[1];
-			}
+        $total_size = ac_helper()->file->get_readable_filesize(array_sum($sizes));
 
-			$items[] = (object) [
-				'file_size'       => $size_int,
-				'file_size_label' => $size_unit,
-				'dimensions'      => $dimensions,
-				'extension'       => $extension,
-				'link'            => $link,
-				'file_name'       => basename( $url ),
-			];
+        return ac_helper()->html->get_ajax_modal_link(
+            sprintf(_n('%d image', '%d images', $count, 'codepress-admin-columns'), $count),
+            [
+                'title'     => strip_tags(get_the_title($id)) ?: $id,
+                'edit_link' => get_edit_post_link($id),
+                'id'        => $id,
+                'class'     => '-w-large',
+            ],
+            ac_helper()->html->rounded($total_size)
+        );
+    }
 
-		}
+    public function get_ajax_value($id)
+    {
+        $id = (int)$id;
 
-		if ( ! $items ) {
-			return false;
-		}
+        $view = new View([
+            'title' => get_the_title($id),
+            'items' => $this->get_image_items($id),
+        ]);
 
-		ob_start();
-		?>
-		<div class="ac-image-details">
-		<?php foreach ( $items as $item ) : ?>
+        return $view->set_template('modal-value/images')
+                    ->render();
+    }
 
-			<?php if ( $item->link ) : ?>
-				<a href="<?php echo esc_url( $item->link ); ?>" class="ac-image-info">
-				<?php echo ac_helper()->html->tooltip( ac_helper()->icon->dashicon( [ 'icon' => 'format-image' ] ), $item->file_name ); ?>
-			<?php else : ?>
-				<div class="ac-image-info">
-			<?php endif; ?>
+    private function get_image_items(int $id): array
+    {
+        $items = [];
 
-			<?php if ( $item->extension ) : ?>
-				<span class="image-extension"><?php echo $item->extension; ?></span>
-			<?php endif; ?>
-			<?php if ( $item->file_size ) : ?>
-				<span class="image-file-size"><?php echo $item->file_size; ?><span class="suffix"><?php echo $item->file_size_label; ?></span></span>
-			<?php endif; ?>
-			<?php if ( $item->dimensions ) : ?>
-				<span class="image-dimensions"><?php echo $item->dimensions; ?><span class="suffix">px</span></span>
-			<?php endif; ?>
+        foreach ($this->get_image_urls($id) as $url) {
+            $size = ac_helper()->image->get_local_image_size($url);
 
-			<?php if ( $item->link ) : ?>
-				</a>
-			<?php else : ?>
-				</div>
-			<?php endif; ?>
+            if ( ! $size) {
+                continue;
+            }
 
-		<?php endforeach; ?>
-		</div>
-		<?php
+            $dimensions = null;
+            $extension = null;
+            $edit_url = null;
+            $filename = basename($url);
+            $alt = $filename;
+            $image_src = $url;
 
-		return ob_get_clean();
-	}
+            $info = ac_helper()->image->get_local_image_info($url);
 
-	public function get_value( $id ) {
-		$sizes = $this->get_raw_value( $id );
+            if ($info) {
+                $dimensions = $info[0] . ' x ' . $info[1];
+                $extension = image_type_to_extension($info[2], false);
+            }
 
-		if ( ! $sizes ) {
-			return $this->get_empty_char();
-		}
+            $attachment_id = ac_helper()->media->get_attachment_id_by_url($url, true);
 
-		$count = count( $sizes );
+            if ($attachment_id) {
+                $edit_url = get_edit_post_link($attachment_id);
+                $alt = get_post_meta($attachment_id, '_wp_attachment_image_alt', true);
+            }
 
-		$label = ac_helper()->html->rounded( $count );
+            $items[] = [
+                'img_src'    => $image_src,
+                'alt'        => $alt,
+                'filename'   => $filename,
+                'filetype'   => $extension,
+                'filesize'   => ac_helper()->file->get_readable_filesize($size),
+                'dimensions' => $dimensions,
+                'edit_url'   => $edit_url,
+            ];
+        }
 
-		// File size as label with count
-		$label .= ac_helper()->file->get_readable_filesize( array_sum( $sizes ) );
+        return $items;
+    }
 
-		// Total images
-		$tooltip = '<strong>' . sprintf( _n( '%s image', '%s images', $count, 'codepress-admin-columns' ), $count ) . '</strong>';
-		$value = ac_helper()->html->tooltip( $label, $tooltip );
+    public function get_raw_value($id)
+    {
+        return $this->get_image_sizes($this->get_image_urls((int)$id));
+    }
 
-		return ac_helper()->html->get_ajax_toggle_box_link( $id, $value, $this->get_name() );
-	}
+    private function get_image_urls(int $id): array
+    {
+        $string = ac_helper()->post->get_raw_field('post_content', $id);
 
-	/**
-	 * @param int $id
-	 *
-	 * @return array
-	 */
-	public function get_raw_value( $id ) {
-		$sizes = [];
+        /**
+         * Parsed content for images.
+         *
+         * @param string $string
+         * @param int    $id
+         * @param int    $this
+         *
+         * @return string
+         */
+        $string = (string)apply_filters('ac/column/images/content', $string, $id, $this);
 
-		foreach ( $this->get_image_urls( $id ) as $url ) {
-			if ( $size = ac_helper()->image->get_local_image_size( $url ) ) {
-				$sizes[] = $size;
-			}
-		}
-
-		return $sizes;
-	}
-
-	/**
-	 * @param int $id
-	 *
-	 * @return array
-	 */
-	private function get_image_urls( $id ) {
-		$string = ac_helper()->post->get_raw_field( 'post_content', $id );
-
-		/**
-		 * Parsed content for images.
-		 *
-		 * @param string $string
-		 * @param int    $id
-		 * @param int    $this
-		 *
-		 * @return string
-		 */
-		$string = apply_filters( 'ac/column/images/content', $string, $id, $this );
-
-		return array_unique( ac_helper()->image->get_image_urls_from_string( $string ) );
-	}
+        return array_unique(ac_helper()->image->get_image_urls_from_string($string));
+    }
 
 }

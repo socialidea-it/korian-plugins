@@ -2,56 +2,49 @@
 
 namespace ACP\Sorting\Model\Taxonomy;
 
-use ACP\Sorting\AbstractModel;
+use ACP\Query\Bindings;
+use ACP\Sorting\Model\QueryBindings;
+use ACP\Sorting\Model\SqlOrderByFactory;
+use ACP\Sorting\Type\ComputationType;
+use ACP\Sorting\Type\Order;
 
-class MetaCount extends AbstractModel {
+class MetaCount implements QueryBindings
+{
 
-	/**
-	 * @var string
-	 */
-	protected $meta_key;
+    protected $meta_key;
 
-	public function __construct( $meta_key ) {
-		parent::__construct();
+    public function __construct(string $meta_key)
+    {
+        $this->meta_key = $meta_key;
+    }
 
-		$this->meta_key = $meta_key;
-	}
+    public function create_query_bindings(Order $order): Bindings
+    {
+        global $wpdb;
 
-	public function get_sorting_vars() {
-		add_action( 'terms_clauses', [ $this, 'pre_term_query_callback' ] );
+        $bindings = new Bindings();
 
-		return [];
-	}
+        $alias = $bindings->get_unique_alias('metacount');
 
-	public function pre_term_query_callback( $clauses ) {
-		global $wpdb;
+        $orderby = SqlOrderByFactory::create_with_computation(
+            new ComputationType(ComputationType::COUNT),
+            "$alias.meta_key",
+            $order,
+            true
+        );
 
-		$join_type = $this->show_empty
-			? 'LEFT'
-			: 'INNER';
+        $join = $wpdb->prepare(
+            "
+			    LEFT JOIN $wpdb->termmeta AS $alias ON t.term_id = $alias.term_id
+				AND $alias.meta_key = %s
+		    ",
+            $this->meta_key
+        );
 
-		$clauses['fields'] .= ", COUNT( acsort_termmeta.meta_key ) AS acsort_termcount";
-		$clauses['join'] .= $wpdb->prepare( "
-			{$join_type} JOIN {$wpdb->termmeta} AS acsort_termmeta 
-				ON t.term_id = acsort_termmeta.term_id
-				AND acsort_termmeta.meta_key = %s
-		", $this->meta_key );
-
-		if ( ! $this->show_empty ) {
-			$clauses['join'] .= " AND acsort_termmeta.meta_value <> ''";
-		}
-
-		$order = esc_sql( $this->get_order() );
-
-		$clauses['orderby'] = "
-			GROUP BY t.term_id 
-			ORDER BY acsort_termcount $order
-		";
-		$clauses['order'] = '';
-
-		remove_action( 'terms_clauses', [ $this, __FUNCTION__ ] );
-
-		return $clauses;
-	}
+        return $bindings
+            ->join($join)
+            ->group_by("t.term_id")
+            ->order_by($orderby);
+    }
 
 }

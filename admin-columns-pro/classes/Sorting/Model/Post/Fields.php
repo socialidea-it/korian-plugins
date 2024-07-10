@@ -1,86 +1,37 @@
 <?php
 
+declare(strict_types=1);
+
 namespace ACP\Sorting\Model\Post;
 
-use ACP\Sorting\AbstractModel;
+use ACP\Query\Bindings;
 use ACP\Sorting\FormatValue;
-use ACP\Sorting\Sorter;
-use ACP\Sorting\Type\DataType;
-use wpdb;
+use ACP\Sorting\Model\QueryBindings;
+use ACP\Sorting\Model\SqlOrderByFactory;
+use ACP\Sorting\Type\Order;
 
-/**
- * @since 5.2
- */
-class Fields extends AbstractModel {
+class Fields implements QueryBindings
+{
 
-	/**
-	 * @param array
-	 */
-	private $fields;
+    use PostResultsTrait;
 
-	/**
-	 * @var FormatValue
-	 */
-	protected $formatter;
+    public function __construct(array $db_columns, FormatValue $formatter = null)
+    {
+        $this->db_columns = $db_columns;
+        $this->formatter = $formatter;
+    }
 
-	public function __construct( array $fields, FormatValue $formatter = null, DataType $data_type = null ) {
-		parent::__construct( $data_type );
+    public function create_query_bindings(Order $order): Bindings
+    {
+        global $wpdb;
 
-		$this->fields = $fields;
-		$this->formatter = $formatter;
-	}
-
-	/**
-	 * @return array
-	 */
-	public function get_sorting_vars() {
-		add_filter( 'posts_fields', [ $this, 'posts_fields_callback' ] );
-
-		$args = [
-			'suppress_filters' => false,
-			'fields'           => [],
-		];
-
-		$ids = [];
-
-		foreach ( $this->strategy->get_results( $args ) as $object ) {
-			$value = '';
-
-			foreach ( $this->fields as $field ) {
-				$field_value = $object->{$field};
-
-				$value .= $this->formatter
-					? $this->formatter->format_value( $field_value )
-					: $field_value;
-			}
-
-			$ids[ $object->id ] = $value;
-
-			wp_cache_delete( $object->id, 'posts' );
-		}
-
-		return [
-			'ids' => ( new Sorter() )->sort( $ids, $this->get_order(), $this->data_type, $this->show_empty ),
-		];
-	}
-
-	/**
-	 * Only return fields required for sorting
-	 * @return string
-	 * @global wpdb $wpdb
-	 */
-	public function posts_fields_callback() {
-		global $wpdb;
-
-		remove_filter( 'posts_fields', [ $this, __FUNCTION__ ] );
-
-		$field = sprintf( '%s.ID AS id', $wpdb->posts );
-
-		foreach ( $this->fields as $_field ) {
-			$field .= sprintf( ", LEFT( {$wpdb->posts}.%s, 100 ) AS %s", esc_sql( $_field ), esc_sql( $_field ) );
-		}
-
-		return $field;
-	}
+        return (new Bindings())->order_by(
+            SqlOrderByFactory::create_with_ids(
+                "$wpdb->posts.ID",
+                $this->get_post_ids(),
+                (string)$order
+            )
+        );
+    }
 
 }

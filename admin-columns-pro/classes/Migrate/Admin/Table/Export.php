@@ -1,113 +1,195 @@
 <?php
 
+declare(strict_types=1);
+
 namespace ACP\Migrate\Admin\Table;
 
 use AC;
 use AC\ListScreen;
 use AC\ListScreenCollection;
-use AC\ListScreenRepository\Storage;
+use ACP\ListScreenPreferences;
+use ACP\ListScreenRepository\SourceAware;
+use ACP\ListScreenRepository\Types;
+use ACP\Search\SegmentCollection;
 
-class Export extends AC\Admin\Table {
+class Export extends AC\Admin\Table
+{
 
-	/**
-	 * @var Storage
-	 */
-	private $storage;
+    private $storage;
 
-	/**
-	 * @var bool
-	 */
-	private $network_only;
+    private $list_keys_factory;
 
-	public function __construct( Storage $storage, $network_only ) {
-		$this->storage = $storage;
-		$this->network_only = $network_only;
-	}
+    private $is_network;
 
-	/**
-	 * @return ListScreenCollection
-	 */
-	public function get_rows() {
-		$args = [
-			Storage::ARG_SORT => new AC\ListScreenRepository\Sort\Label(),
-		];
+    public function __construct(
+        AC\ListScreenRepository\Storage $storage,
+        AC\Table\ListKeysFactoryInterface $list_keys_factory,
+        bool $is_network = false
+    ) {
+        $this->storage = $storage;
+        $this->list_keys_factory = $list_keys_factory;
+        $this->is_network = $is_network;
+    }
 
-		if ( $this->network_only ) {
-			$args[ Storage::ARG_FILTER ][] = new AC\ListScreenRepository\Filter\Network();
-		}
+    private function get_list_screens(): ListScreenCollection
+    {
+        $list_screens = [];
 
-		$rows = $this->storage->find_all( $args );
+        foreach ($this->list_keys_factory->create()->all() as $list_key) {
+            if ($list_key->is_network() !== $this->is_network) {
+                continue;
+            }
 
-		if ( $rows->count() < 1 ) {
-			$this->message = __( 'No column settings available.', 'codepress-admin-columns' );
-		}
+            $list_screens[] = $this->storage->find_all_by_key(
+                (string)$list_key,
+                new AC\ListScreenRepository\Sort\Label()
+            )->get_copy();
+        }
 
-		return $rows;
-	}
+        return new ListScreenCollection(array_merge(...$list_screens));
+    }
 
-	/**
-	 * @param string     $key
-	 * @param ListScreen $list_screen
-	 *
-	 * @return string|null
-	 */
-	public function get_column( $key, $list_screen ) {
-		switch ( $key ) {
-			case 'check-column' :
-				return sprintf( '<input name="list_screen_ids[]" type="checkbox" id="export-%1$s" value="%1$s">', $list_screen->get_layout_id() );
-			case 'name' :
-				return sprintf( '<a href="%s">%s</a>', $list_screen->get_edit_link(), $list_screen->get_title() );
-			case 'list-table' :
-				return sprintf( '<label for="export-%s"><strong>%s</strong></label>', $list_screen->get_layout_id(), $list_screen->get_label() );
-			case 'id' :
-				return sprintf( '<small>%s</small>', $list_screen->get_layout_id() );
-			case 'source' :
-				return $this->get_source( $list_screen );
-		}
+    public function get_rows(): ListScreenCollection
+    {
+        $list_screens = $this->get_list_screens();
 
-		return null;
-	}
+        if ($list_screens->count() < 1) {
+            $this->message = __('No column settings available.', 'codepress-admin-columns');
+        }
 
-	private function get_repository_label( $repository_name ) {
-		$labels = [
-			'acp-database' => __( 'Database', 'codepress-admin-columns' ),
-			'acp-file'     => __( 'File', 'codepress-admin-columns' ),
-		];
+        return $list_screens;
+    }
 
-		return isset( $labels[ $repository_name ] )
-			? $labels[ $repository_name ]
-			: $repository_name;
-	}
+    private function get_segments(ListScreen $list_screen): SegmentCollection
+    {
+        return $list_screen->get_preference(ListScreenPreferences::SHARED_SEGMENTS);
+    }
 
-	private function get_source( ListScreen $list_screen ) {
-		foreach ( array_reverse( $this->storage->get_repositories() ) as $name => $repo ) {
-			if ( ! $repo->find( $list_screen->get_id() ) ) {
-				continue;
-			}
+    public function get_column(string $key, $list_screen): string
+    {
+        if ( ! $list_screen instanceof ListScreen) {
+            return '';
+        }
 
-			$label = $this->get_repository_label( $name );
+        $list_id = $list_screen->has_id() ? (string)$list_screen->get_id() : '';
 
-			if ( $repo->has_source( $list_screen->get_id() ) ) {
-				return sprintf( '<span data-ac-tip="%s">%s</span>',
-					sprintf( '%s: %s', __( 'Path', 'codepress-admin-columns' ), $repo->get_source( $list_screen->get_id() ) ),
-					$label
-				);
-			}
+        switch ($key) {
+            case 'check-column' :
+                return sprintf(
+                    '<input name="list_screen_ids[]" type="checkbox" id="export-%1$s" value="%1$s">',
+                    $list_id
+                );
+            case 'name' :
+                return sprintf(
+                    '<a href="%s">%s</a>',
+                    esc_url((string)$list_screen->get_editor_url()),
+                    $list_screen->get_title() ?: $list_screen->get_label()
+                );
+            case 'list-table' :
+                return sprintf(
+                    '<label for="export-%s"><strong>%s</strong></label>',
+                    $list_id,
+                    $list_screen->get_label()
+                );
+            case 'id' :
+                return sprintf('<small>%s</small>', $list_id);
+            case 'source' :
+                return $this->get_source($list_screen);
+            case 'segments':
+                return $this->column_segments($this->get_segments($list_screen));
+            case 'actions' :
+                return sprintf(
+                    '<button class="button" data-download="%s">%s</button>',
+                    $list_id,
+                    __('Export', 'codepress-admin-columns')
+                );
+        }
 
-			return $label;
-		}
+        return '';
+    }
 
-		return null;
-	}
+    private function column_segments(SegmentCollection $segments): string
+    {
+        if ( ! $segments->count()) {
+            return '-';
+        }
 
-	public function get_headings() {
-		return [
-			'check-column' => '<input type="checkbox" data-select-all>',
-			'list-table'   => __( 'List Table', 'codepress-admin-columns' ),
-			'name'         => __( 'Name', 'codepress-admin-columns' ),
-			'source'       => __( 'Source', 'codepress-admin-columns' ),
-			'id'           => __( 'ID', 'codepress-admin-columns' ),
-		];
-	}
+        $data = [];
+
+        foreach ($segments as $segment) {
+            $data[(string)$segment->get_key()] = $segment->get_name();
+        }
+
+        $label = sprintf(
+            _n(
+                '%s saved filter',
+                '%s saved filters',
+                count($data),
+                'codepress-admin-columns'
+            ),
+            count($data)
+        );
+
+        return sprintf(
+            '<div data-segments="%s" data-label="%s"></div>',
+            esc_attr(json_encode($data)),
+            esc_attr($label)
+        );
+    }
+
+    private function get_repository_label($repository_name)
+    {
+        $labels = [
+            Types::DATABASE => __('Database', 'codepress-admin-columns'),
+            Types::FILE     => __('File', 'codepress-admin-columns'),
+        ];
+
+        return $labels[$repository_name] ?? $repository_name;
+    }
+
+    private function get_source(ListScreen $list_screen)
+    {
+        foreach (array_reverse($this->storage->get_repositories()) as $name => $repository) {
+            if ( ! $repository->get_list_screen_repository()->find($list_screen->get_id())) {
+                continue;
+            }
+
+            $list_screen_repository = $repository->get_list_screen_repository();
+
+            $label = $this->get_repository_label($name);
+
+            if (
+                $list_screen_repository instanceof SourceAware
+                && $list_screen_repository->get_sources()->contains($list_screen->get_id())
+            ) {
+                return sprintf(
+                    '<span data-ac-tip="%s">%s</span>',
+                    sprintf(
+                        '%s: %s',
+                        __('Path', 'codepress-admin-columns'),
+                        $list_screen_repository->get_sources()->get($list_screen->get_id())
+                    ),
+                    $label
+                );
+            }
+
+            return $label;
+        }
+
+        return null;
+    }
+
+    public function get_headings(): array
+    {
+        return [
+            'check-column' => '<input type="checkbox" data-select-all>',
+            'list-table'   => __('List Table', 'codepress-admin-columns'),
+            'name'         => __('Name', 'codepress-admin-columns'),
+            'source'       => __('Source', 'codepress-admin-columns'),
+            'segments'     => __('Saved Filters', 'codepress-admin-columns'),
+            'id'           => __('ID', 'codepress-admin-columns'),
+            'actions'      => '',
+        ];
+    }
 
 }

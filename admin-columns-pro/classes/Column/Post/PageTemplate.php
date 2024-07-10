@@ -3,31 +3,39 @@
 namespace ACP\Column\Post;
 
 use AC;
+use ACP\ConditionalFormat;
 use ACP\Editing;
-use ACP\Filtering;
 use ACP\Search;
 use ACP\Sorting;
 
-/**
- * @since 2.0
- */
 class PageTemplate extends AC\Column\Post\PageTemplate
-	implements Filtering\Filterable, Sorting\Sortable, Editing\Editable, Search\Searchable {
+    implements Sorting\Sortable, Editing\Editable, Search\Searchable,
+               ConditionalFormat\Formattable
+{
 
-	public function sorting() {
-		return new Sorting\Model\Post\PageTemplate( $this->get_post_type(), $this->get_meta_key() );
-	}
+    use ConditionalFormat\ConditionalFormatTrait;
 
-	public function editing() {
-		return new Editing\Service\Post\PageTemplate( $this->get_post_type() );
-	}
+    public function sorting()
+    {
+        return new Sorting\Model\Post\PageTemplate($this->get_post_type(), $this->get_meta_key());
+    }
 
-	public function filtering() {
-		return new Filtering\Model\Post\PageTemplate( $this );
-	}
+    public function editing()
+    {
+        if ( ! $this->get_page_templates()) {
+            return false;
+        }
 
-	public function search() {
-		return new Search\Comparison\Post\PageTemplate( $this->get_page_templates() );
-	}
+        return new Editing\Service\Post\PageTemplate($this->get_post_type());
+    }
+
+    public function search()
+    {
+        $templates = $this->get_page_templates();
+
+        return ! empty($templates)
+            ? new Search\Comparison\Post\PageTemplate($templates)
+            : false;
+    }
 
 }

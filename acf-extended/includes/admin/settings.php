@@ -162,7 +162,7 @@ class acfe_admin_settings{
                 array(
                     'label'         => 'l10n textdomain',
                     'name'          => 'l10n_textdomain',
-                    'type'          => 'true_false',
+                    'type'          => 'text',
                     'description'   => 'Sets the text domain used when translating field and field group settings.<br />Defaults to ”. Strings will not be translated if this setting is empty',
                     'category'      => 'acf',
                 ),
@@ -384,6 +384,13 @@ class acfe_admin_settings{
                     'category'      => 'modules',
                 ),
                 array(
+                    'label'         => 'Forms: Top Level',
+                    'name'          => 'acfe/modules/forms/top_level',
+                    'type'          => 'true_false',
+                    'description'   => 'Show/hide the Forms module as top level menu. Defaults to false',
+                    'category'      => 'modules',
+                ),
+                array(
                     'label'         => 'Multilangual',
                     'name'          => 'acfe/modules/multilang',
                     'type'          => 'true_false',
@@ -405,17 +412,17 @@ class acfe_admin_settings{
                     'category'      => 'modules',
                 ),
                 array(
+                    'label'         => 'Performance',
+                    'name'          => 'acfe/modules/performance',
+                    'type'          => 'text',
+                    'description'   => 'Enable/disable Performance module. Defaults to false',
+                    'category'      => 'modules',
+                ),
+                array(
                     'label'         => 'Post Types',
                     'name'          => 'acfe/modules/post_types',
                     'type'          => 'true_false',
                     'description'   => 'Show/hide the Post Types module. Defaults to true',
-                    'category'      => 'modules',
-                ),
-                array(
-                    'label'         => 'Single Meta',
-                    'name'          => 'acfe/modules/single_meta',
-                    'type'          => 'true_false',
-                    'description'   => 'Enable/disable Single Meta Save module. Defaults to false',
                     'category'      => 'modules',
                 ),
                 array(
@@ -585,7 +592,7 @@ class acfe_admin_settings_ui{
      *
      * @param $setting
      *
-     * @return array
+     * @return array|false
      */
     function prepare_setting($setting){
     
@@ -603,13 +610,20 @@ class acfe_admin_settings_ui{
         
         $name = $setting['name'];
         $type = $setting['type'];
+        
+        // setting doesn't exist in default acf settings
+        // probably an older version of acf
+        if(!isset($this->defaults[ $name ])){
+            return false;
+        }
+        
         $format = $setting['format'];
-        $default = $this->defaults[$name];
-        $updated = $this->updated[$name];
+        $default = $this->defaults[ $name ];
+        $updated = $this->updated[ $name ];
         
         $vars = array(
-            'default' => $this->defaults[$name],
-            'updated' => $this->updated[$name]
+            'default' => $this->defaults[ $name ],
+            'updated' => $this->updated[ $name ]
         );
     
         foreach($vars as $v => $var){
@@ -634,8 +648,18 @@ class acfe_admin_settings_ui{
                         $var = explode(',', $var);
                     }
                 
-                    foreach($var as &$r){
-                        $r = '<div class="acf-js-tooltip acfe-settings-text" title="' . $r . '"><code>' . $r . '</code></div>';
+                    foreach($var as $k => &$r){
+                        if(is_array($r)){
+                            $encode = json_encode($r);
+                            $r = '<div class="acfe-settings-text"><code>' . $encode . '</code></div>';
+                        }else{
+                            
+                            if(!is_numeric($k)){
+                                $r = "{$k} = {$r}";
+                            }
+                            
+                            $r = '<div class="acf-js-tooltip acfe-settings-text" title="' . $r . '"><code>' . $r . '</code></div>';
+                        }
                     }
                 
                     $result = implode('', $var);
@@ -723,7 +747,11 @@ class acfe_admin_settings_ui{
                 foreach($this->fields[$category] as $field){
                     
                     $field = $this->prepare_setting($field);
-                    $fields[] = $field;
+                    
+                    // make sure the setting exists
+                    if($field){
+                        $fields[] = $field;
+                    }
         
                 }
     

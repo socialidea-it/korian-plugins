@@ -2,16 +2,13 @@
 
 namespace ACP\Search\TableScreen;
 
-use ACP\Helper\FilterButtonFactory;
 use ACP\Search\TableScreen;
 
 class MSUser extends TableScreen {
 
-	public function register() {
+	public function register(): void
+    {
 		add_action( 'in_admin_footer', [ $this, 'filters_markup' ], 1 );
-
-		$filter_button = FilterButtonFactory::create( FilterButtonFactory::SCREEN_USERS );
-		$filter_button->register();
 
 		parent::register();
 	}

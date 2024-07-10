@@ -2,14 +2,38 @@
 # This file is distributed under the same license as the Plugins - Redirection - Stable (latest release) package.
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2022-11-11 11:33:51+0000\n"
+"PO-Revision-Date: 2024-01-05 09:26:17+0000\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: GlotPress/4.0.0-alpha.3\n"
+"X-Generator: GlotPress/4.0.0-beta.2\n"
 "Language: it\n"
 "Project-Id-Version: Plugins - Redirection - Stable (latest release)\n"
+
+#: redirection.js:2
+msgid "If using a proxy then add any IP addresses here to only trust IP headers from those addresses."
+msgstr ""
+
+#: redirection.js:2
+msgid "Proxy Address"
+msgstr ""
+
+#: redirection.js:2
+msgid "Please ensure you trust the data in these headers. If using a proxy then set its address below."
+msgstr ""
+
+#: redirection.js:2
+msgid "Only set custom IP headers if your server does not use <code>REMOTE_ADDR</code> to store the client IP address."
+msgstr ""
+
+#: redirection.js:2
+msgid "REMOTE_ADDR"
+msgstr ""
+
+#: redirection.js:2
+msgid "IP Address"
+msgstr ""
 
 #: redirection.js:2
 msgid "Export Logs"
@@ -530,7 +554,7 @@ msgstr "Sono stati rilevati i seguenti plugin."
 
 #: redirection-strings.php:181 redirection.js:2
 msgid "WordPress automatically creates redirects when you change a post URL. Importing these into Redirection will allow you to manage and monitor them."
-msgstr "WordPress crea automaticamente il reindirizzamento, quando gli URL degli articoli vengono cambiati.  Importare questi URL in Redirection ne permette il controllo e la gestione."
+msgstr "WordPress crea automaticamente il reindirizzamento, quando gli URL degli articoli vengono cambiati. Importare questi URL in Redirection ne permette il controllo e la gestione."
 
 #: redirection-strings.php:180 redirection.js:2
 msgid "Importing existing redirects from WordPress or other plugins is a good way to get started with Redirection. Check each set of redirects you wish to import."
@@ -817,7 +841,7 @@ msgstr "Se il sito necessita di permessi speciali sul Database, o se preferisci 
 msgid "Manual Install"
 msgstr "Installazione manuale"
 
-#: database/database-status.php:156
+#: database/database-status.php:160
 msgid "Insufficient database permissions detected. Please give your database user appropriate permissions."
 msgstr "RIlevati permessi insufficienti sul database. Fornisci i permessi appropriati all'utente del database."
 
@@ -1313,15 +1337,15 @@ msgstr "Prova di nuovo"
 msgid "Database problem"
 msgstr "Problema del database"
 
-#: redirection-admin.php:550
+#: redirection-admin.php:567
 msgid "Please enable JavaScript"
 msgstr "Abilita JavaScript"
 
-#: redirection-admin.php:217
+#: redirection-admin.php:219
 msgid "Please upgrade your database"
 msgstr "Aggiorna il database"
 
-#: redirection-admin.php:208 redirection.js:2
+#: redirection-admin.php:210 redirection.js:2
 msgid "Upgrade Database"
 msgstr "Aggiorna il database"
 
@@ -1632,11 +1656,11 @@ msgstr "{{link}}Il software di cache{{/link}}, in particolare Cloudflare, può m
 msgid "{{link}}Please temporarily disable other plugins!{{/link}} This fixes so many problems."
 msgstr "{{link}}Disabilita temporaneamente altri plugin!{{/link}} Ciò risolve molti problemi."
 
-#: redirection-admin.php:529
+#: redirection-admin.php:546
 msgid "Please see the <a href=\"https://redirection.me/support/problems/\">list of common problems</a>."
 msgstr "Consulta la <a href=\"https://redirection.me/support/problems/\">lista dei problemi comuni</a>."
 
-#: redirection-admin.php:523
+#: redirection-admin.php:540
 msgid "Unable to load Redirection ☹️"
 msgstr "Impossibile caricare Redirection ☹️"
 
@@ -1753,12 +1777,12 @@ msgstr "Powered by {{link}}redirect.li{{/link}}"
 msgid "Trash"
 msgstr "Cestino"
 
-#: redirection-admin.php:528
+#: redirection-admin.php:545
 msgid "Please note that Redirection requires the WordPress REST API to be enabled. If you have disabled this then you won't be able to use Redirection"
 msgstr "Tieni presente che Redirection richiede che la REST API di WordPress sia abilitata. Se l'hai disabilitata, non potrai usare Redirection"
 
 #. translators: URL
-#: redirection-admin.php:408
+#: redirection-admin.php:425
 msgid "You can find full documentation about using Redirection on the <a href=\"%s\" target=\"_blank\">redirection.me</a> support site."
 msgstr "Puoi trovare la documentazione completa sull'uso di Redirection sul sito di supporto <a href=\"%s\" target=\"_blank\">redirection.me</a>."
 
@@ -1815,7 +1839,7 @@ msgid "Import from %s"
 msgstr "Importa da %s"
 
 #. translators: 1: Expected WordPress version, 2: Actual WordPress version
-#: redirection-admin.php:511
+#: redirection-admin.php:528
 msgid "Redirection requires WordPress v%1$1s, you are using v%2$2s - please update your WordPress"
 msgstr "Redirection richiede WordPress v%1$1s, tu stai usando v%2$2s - aggiorna il tuo WordPress"
 
@@ -1827,7 +1851,7 @@ msgstr "Vecchi slug di default di WordPress"
 msgid "Create associated redirect (added to end of URL)"
 msgstr "Crea un reindirizzamento associato (aggiunto al termine dell'URL)"
 
-#: redirection-admin.php:531
+#: redirection-admin.php:548
 msgid "<code>Redirectioni10n</code> is not defined. This usually means another plugin is blocking Redirection from loading. Please disable all plugins and try again."
 msgstr "<code>Redirectioni10n</code> non è definito. Di solito significa che un altro plugin blocca il caricamento di Redirection. Disabilita gli altri plugin e riprova."
 
@@ -1880,15 +1904,15 @@ msgstr "Controllo URL"
 msgid "Your server has rejected the request for being too big. You will need to reconfigure it to continue."
 msgstr "Il tuo server ha respinto la richiesta perché troppo grande. Devi cambiarla per continuare."
 
-#: redirection-admin.php:526
+#: redirection-admin.php:543
 msgid "Also check if your browser is able to load <code>redirection.js</code>:"
 msgstr "Verifica che il tuo browser riesca a caricare <code>redirection.js</code>:"
 
-#: redirection-admin.php:525 redirection-strings.php:257 redirection.js:2
+#: redirection-admin.php:542 redirection-strings.php:257 redirection.js:2
 msgid "If you are using a page caching plugin or service (CloudFlare, OVH, etc) then you can also try clearing that cache."
 msgstr "Se stai usando un plugin di caching delle pagine o un servizio (CloudFlare, OVH, ecc.), puoi anche provare a svuotare queste cache."
 
-#: redirection-admin.php:514
+#: redirection-admin.php:531
 msgid "Unable to load Redirection"
 msgstr "Impossibile caricare Redirection"
 
@@ -1952,15 +1976,15 @@ msgstr "Pulisci la cache del tuo browser e ricarica questa pagina"
 msgid "WordPress did not return a response. This could mean an error occurred or that the request was blocked. Please check your server error_log."
 msgstr "WordPress non ha restituito una risposta. Questo può significare che si è verificato un errore o che la richiesta è stata bloccata. Controlla il registro degli errori del tuo server."
 
-#: redirection-admin.php:530
+#: redirection-admin.php:547
 msgid "If you think Redirection is at fault then create an issue."
 msgstr "Se ritieni che Redirection abbia un problema, apri un ticket."
 
-#: redirection-admin.php:524
+#: redirection-admin.php:541
 msgid "This may be caused by another plugin - look at your browser's error console for more details."
 msgstr "Ciò potrebbe essere causato da un altro plugin. Guarda la console degli errori del browser per maggiori dettagli."
 
-#: redirection-admin.php:546
+#: redirection-admin.php:563
 msgid "Loading, please wait..."
 msgstr "Caricamento in corso, attendi..."
 
@@ -1976,7 +2000,7 @@ msgstr "Redirection non sta funzionando. Prova a svuotare la cache del tuo brows
 msgid "If that doesn't help, open your browser's error console and create a {{link}}new issue{{/link}} with the details."
 msgstr "Se questo non aiuta, apri la console degli errori del browser e crea un {{link}}nuovo ticket{{/link}} con i dettagli."
 
-#: redirection-admin.php:534
+#: redirection-admin.php:551
 msgid "Create Issue"
 msgstr "Apri un ticket"
 
@@ -2008,11 +2032,11 @@ msgstr "Posizione"
 msgid "Used to auto-generate a URL if no URL is given. Use the special tags {{code}}$dec${{/code}} or {{code}}$hex${{/code}} to insert a unique ID instead"
 msgstr "Utilizzato per autogenerare un URL se non ne viene fornito alcuno. Utilizza il tag speciale {{code}}$dec${{/code}} o {{code}}$hex${{/code}} per inserire un ID univoco"
 
-#: redirection-strings.php:448 redirection.js:2
+#: redirection-strings.php:448
 msgid "I'd like to support some more."
 msgstr "Vorrei contribuire un po' di più."
 
-#: redirection-strings.php:451 redirection.js:2
+#: redirection-strings.php:451
 msgid "Support 💰"
 msgstr "Supporta 💰"
 
@@ -2200,13 +2224,13 @@ msgid "Something went wrong 🙁"
 msgstr "Qualcosa è andato storto 🙁"
 
 #. translators: maximum number of log entries
-#: redirection-admin.php:273
+#: redirection-admin.php:285
 msgid "Log entries (%d max)"
 msgstr "Voci di log (%d max)"
 
 #: redirection-strings.php:141 redirection.js:2
 msgid "Bulk Actions"
-msgstr "Azioni di massa"
+msgstr "Azioni di gruppo"
 
 #: redirection-strings.php:142 redirection-strings.php:143 redirection.js:2
 msgid "Apply"
@@ -2270,11 +2294,11 @@ msgstr "Iscriviti alla newsletter di Redirection - una newsletter a basso traffi
 msgid "Your email address:"
 msgstr "Il tuo indirizzo email:"
 
-#: redirection-strings.php:447 redirection.js:2
+#: redirection-strings.php:447
 msgid "You've supported this plugin - thank you!"
 msgstr "Hai già supportato questo plugin - grazie!"
 
-#: redirection-strings.php:450 redirection.js:2
+#: redirection-strings.php:450
 msgid "You get useful software and I get to carry on making it better."
 msgstr "Tu ricevi software utile e io posso continuare a migliorarlo."
 
@@ -2310,11 +2334,11 @@ msgstr "John Godley"
 msgid "Manage all your 301 redirects and monitor 404 errors"
 msgstr "Gestisci tutti i redirect 301 and controlla tutti gli errori 404"
 
-#: redirection-strings.php:449 redirection.js:2
+#: redirection-strings.php:449
 msgid "Redirection is free to use - life is wonderful and lovely! It has required a great deal of time and effort to develop and you can help support this development by {{strong}}making a small donation{{/strong}}."
 msgstr "Redirection può essere utilizzato gratuitamente - la vita è davvero fantastica e piena di tante belle cose! Lo sviluppo di questo plugin richiede comunque molto tempo e lavoro, sarebbe pertanto gradito il tuo sostegno {{strong}}tramite una piccola donazione{{/strong}}."
 
-#: redirection-admin.php:409
+#: redirection-admin.php:426
 msgid "Redirection Support"
 msgstr "Forum di supporto Redirection"
 
@@ -2374,11 +2398,11 @@ msgstr "(per quanto tempo conservare i log)"
 msgid "Redirect Logs"
 msgstr "Registro redirezioni"
 
-#: redirection-strings.php:614 redirection.js:2
+#: redirection-strings.php:614
 msgid "I'm a nice person and I have helped support the author of this plugin"
 msgstr "Sono una brava persona e ho contribuito a sostenere l'autore di questo plugin"
 
-#: redirection-strings.php:452 redirection.js:2
+#: redirection-strings.php:452
 msgid "Plugin Support"
 msgstr "Supporto del plugin"
 
@@ -2460,7 +2484,7 @@ msgstr "Scarica"
 msgid "Redirection"
 msgstr "Redirection"
 
-#: redirection-admin.php:211
+#: redirection-admin.php:213
 msgid "Settings"
 msgstr "Impostazioni"
 
@@ -2472,7 +2496,7 @@ msgstr "WordPress"
 msgid "Error (404)"
 msgstr "Errore (404)"
 
-#: actions/pass.php:74 redirection-strings.php:67 redirection.js:2
+#: actions/pass.php:75 redirection-strings.php:67 redirection.js:2
 msgid "Pass-through"
 msgstr "Pass-through"
 
@@ -2577,7 +2601,7 @@ msgstr "URL"
 msgid "Modified Posts"
 msgstr "Articoli modificati"
 
-#: database/schema/latest.php:138 models/group.php:234
+#: database/schema/latest.php:138 models/group.php:236
 #: redirection-strings.php:269 redirection.js:2
 msgid "Redirections"
 msgstr "Reindirizzamenti"

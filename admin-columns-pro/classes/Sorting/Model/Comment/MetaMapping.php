@@ -2,24 +2,30 @@
 
 namespace ACP\Sorting\Model\Comment;
 
-class MetaMapping extends Meta {
+use ACP\Sorting\Model\SqlOrderByFactory;
+use ACP\Sorting\Type\DataType;
+use ACP\Sorting\Type\Order;
 
-	/**
-	 * @var array
-	 */
-	private $sorted_fields;
+class MetaMapping extends Meta
+{
 
-	public function __construct( $meta_key, $sorted_fields ) {
-		parent::__construct( $meta_key );
+    private $fields;
 
-		$this->sorted_fields = $sorted_fields;
-	}
+    public function __construct(string $meta_key, array $fields)
+    {
+        parent::__construct($meta_key);
 
-	protected function get_order_by() {
-		global $wpdb;
-		$fields = implode( "','", array_map( 'esc_sql', $this->sorted_fields ) );
+        $this->fields = $fields;
+    }
 
-		return sprintf( "FIELD( acsort_commentmeta.meta_value, '%s' ) %s, {$wpdb->comments}.comment_ID", $fields, $this->get_order() );
-	}
+    protected function get_order_by(Order $order): string
+    {
+        return SqlOrderByFactory::create_with_field(
+            "acsort_commentmeta.meta_value",
+            $this->fields,
+            (string)$order,
+            new DataType(DataType::STRING)
+        );
+    }
 
 }

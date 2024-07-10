@@ -4,85 +4,85 @@ namespace AC\Controller;
 
 use AC\Asset\Location\Absolute;
 use AC\ColumnSize;
+use AC\ListScreen;
+use AC\ListScreenFactory;
 use AC\ListScreenRepository\Storage;
-use AC\ListScreenTypes;
-use AC\PermissionChecker;
-use AC\Registrable;
+use AC\Registerable;
 use AC\Request;
+use AC\Settings\General\EditButton;
 use AC\Table;
-use AC\Type\ListScreenId;
 use WP_Screen;
 
-class TableListScreenSetter implements Registrable {
+class TableListScreenSetter implements Registerable
+{
 
-	/**
-	 * @var Storage
-	 */
-	private $storage;
+    private $storage;
 
-	/**
-	 * @var PermissionChecker
-	 */
-	private $permission_checker;
+    private $location;
 
-	/**
-	 * @var Absolute
-	 */
-	private $location;
+    private $list_screen_factory;
 
-	/**
-	 * @var Table\LayoutPreference
-	 */
-	private $preference;
+    private $preference;
 
-	public function __construct( Storage $storage, PermissionChecker $permission_checker, Absolute $location, Table\LayoutPreference $preference ) {
-		$this->storage = $storage;
-		$this->permission_checker = $permission_checker;
-		$this->location = $location;
-		$this->preference = $preference;
-	}
+    private $primary_column_factory;
 
-	public function register() {
-		add_action( 'current_screen', [ $this, 'handle' ] );
-	}
+    private $edit_button;
 
-	public function handle( WP_Screen $wp_screen ) {
-		$request = new Request();
-		$request->add_middleware( new Middleware\ListScreenTable( $this->storage, $wp_screen, $this->preference ) );
+    public function __construct(
+        Storage $storage,
+        Absolute $location,
+        ListScreenFactory $list_screen_factory,
+        Table\LayoutPreference $preference,
+        Table\PrimaryColumnFactory $primary_column_factory,
+        EditButton $edit_button
+    ) {
+        $this->storage = $storage;
+        $this->list_screen_factory = $list_screen_factory;
+        $this->location = $location;
+        $this->preference = $preference;
+        $this->primary_column_factory = $primary_column_factory;
+        $this->edit_button = $edit_button;
+    }
 
-		$list_key = $request->get( 'list_key' );
+    public function register(): void
+    {
+        add_action('current_screen', [$this, 'handle']);
+    }
 
-		if ( ! $list_key ) {
-			return;
-		}
+    public function handle(WP_Screen $wp_screen): void
+    {
+        $request = new Request();
 
-		$list_id = $request->get( 'list_id' );
+        $request->add_middleware(
+            new Middleware\ListScreenTable(
+                $this->storage,
+                $this->list_screen_factory,
+                $wp_screen,
+                $this->preference
+            )
+        );
 
-		$list_screen = ListScreenId::is_valid_id( $list_id )
-			? $this->storage->find( new ListScreenId( $list_id ) )
-			: null;
+        $list_screen = $request->get('list_screen');
 
-		if ( ! $list_screen || ! $this->permission_checker->is_valid( $list_screen ) ) {
-			$list_screen = ListScreenTypes::instance()->get_list_screen_by_key( $list_key );
-		}
+        if ( ! $list_screen instanceof ListScreen) {
+            return;
+        }
 
-		if ( ! $list_screen ) {
-			return;
-		}
+        if ($list_screen->has_id()) {
+            $this->preference->set($list_screen->get_key(), (string)$list_screen->get_id());
+        }
 
-		if ( $list_screen->has_id() ) {
-			$this->preference->set( $list_screen->get_key(), $list_screen->get_id()->get_id() );
-		}
+        $table_screen = new Table\Screen(
+            $this->location,
+            $list_screen,
+            new ColumnSize\ListStorage($this->storage),
+            new ColumnSize\UserStorage(new ColumnSize\UserPreference()),
+            $this->primary_column_factory,
+            $this->edit_button
+        );
+        $table_screen->register();
 
-		$table_screen = new Table\Screen(
-			$this->location,
-			$list_screen,
-			new ColumnSize\ListStorage( $this->storage ),
-			new ColumnSize\UserStorage( new ColumnSize\UserPreference( get_current_user_id() ) )
-		);
-		$table_screen->register();
-
-		do_action( 'ac/table', $table_screen );
-	}
+        do_action('ac/table', $table_screen);
+    }
 
 }

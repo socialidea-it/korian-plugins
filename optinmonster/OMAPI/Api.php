@@ -239,7 +239,8 @@ class OMAPI_Api {
 			? add_query_arg( array_map( 'urlencode', $body ), $this->get_url() )
 			: $this->get_url();
 
-		$url = esc_url_raw( $url );
+		$url     = esc_url_raw( $url );
+		$plugins = new OMAPI_Plugins();
 
 		// Build the headers of the request.
 		$headers = array(
@@ -252,7 +253,7 @@ class OMAPI_Api {
 			'OMAPI-Sender'  => 'WordPress',
 			'OMAPI-Site'    => esc_attr( get_option( 'blogname' ) ),
 			'OMAPI-Version' => esc_attr( OMAPI::get_instance()->version ),
-			'OMAPI-Plugins' => ( new OMAPI_Plugins() )->get_active_plugins_header_value(),
+			'OMAPI-Plugins' => $plugins->get_active_plugins_header_value(),
 		);
 
 		if ( $this->apikey ) {
@@ -518,10 +519,15 @@ class OMAPI_Api {
 		}
 
 		if ( isset( $result->id ) ) {
+			/*
+			 * The user id connecting the plugin. It could be the owner or any sub-account.
+			 * This key should not be used to embed codes or other API usage.
+			 * In those cases, the owner's id (accountUserId) would be the one to use.
+			 */
 			$option['userId'] = $result->id;
 		}
 
-		$to_store = array( 'accountId', 'currentLevel', 'plan', 'revenueAttribution' );
+		$to_store = array( 'accountId', 'accountUserId', 'currentLevel', 'plan', 'revenueAttribution' );
 		foreach ( $to_store as $key ) {
 			if ( isset( $result->{$key} ) ) {
 				$option[ $key ] = is_object( $result->{$key} ) ? (array) $result->{$key} : $result->{$key};
@@ -534,4 +540,20 @@ class OMAPI_Api {
 
 		return $option;
 	}
+
+	/**
+	 * Get the home/rest/admin url args.
+	 *
+	 * @since 2.13.0
+	 *
+	 * @return array
+	 */
+	public static function get_url_args() {
+		return array(
+			'homeUrl'  => esc_url_raw( home_url() ),
+			'restUrl'  => esc_url_raw( get_rest_url() ),
+			'adminUrl' => esc_url_raw( get_admin_url() ),
+		);
+	}
+
 }

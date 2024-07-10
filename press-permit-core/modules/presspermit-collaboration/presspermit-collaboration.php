@@ -8,7 +8,7 @@
  */
 
 /*
-Copyright © 2019 PublishPress
+Copyright © 2024 PublishPress
 
 This file is part of PressPermit Collaborative Publishing.
 
@@ -25,6 +25,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this plugin.  If not, see <http://www.gnu.org/licenses/>.
 */
+
+namespace PublishPress;
 
 if (!defined('ABSPATH')) exit; // Exit if accessed directly
 
@@ -83,12 +85,12 @@ if (!defined('PRESSPERMIT_COLLAB_FILE')) {
                 new \PublishPress\Permissions\CollabHooksCompat();
 
                 // Divi Page Builder
-                if (presspermit_is_REQUEST('action', 'editpost') && !presspermit_empty_REQUEST('et_pb_use_builder') && !presspermit_empty_REQUEST('auto_draft')) {
+                if (PWP::is_REQUEST('action', 'editpost') && !PWP::empty_REQUEST('et_pb_use_builder') && !PWP::empty_REQUEST('auto_draft')) {
                     return;
                 }
 
-                if (presspermit_is_REQUEST('action', 'edit')) {
-                    if ($post_id = presspermit_REQUEST_int('post')) {
+                if (PWP::is_REQUEST('action', 'edit')) {
+                    if ($post_id = PWP::REQUEST_int('post')) {
                         if ($_post = get_post($post_id)) {
                             if ('auto-draft' == $post_id) {
                             	return;

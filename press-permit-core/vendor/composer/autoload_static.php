@@ -4,43 +4,16 @@
 
 namespace Composer\Autoload;
 
-class ComposerStaticInit4e656435857e83b13758206aeca029c9
+class ComposerStaticInitb37fc9224911abb3c50c9287df83244e
 {
-    public static $prefixLengthsPsr4 = array (
-        'P' => 
-        array (
-            'Psr\\Container\\' => 14,
-            'PPVersionNotices\\' => 17,
-        ),
-    );
-
-    public static $prefixDirsPsr4 = array (
-        'Psr\\Container\\' => 
-        array (
-            0 => __DIR__ . '/..' . '/psr/container/src',
-        ),
-        'PPVersionNotices\\' => 
-        array (
-            0 => __DIR__ . '/..' . '/publishpress/wordpress-version-notices/src',
-        ),
-    );
-
-    public static $prefixesPsr0 = array (
-        'P' => 
-        array (
-            'Pimple' => 
-            array (
-                0 => __DIR__ . '/..' . '/pimple/pimple/src',
-            ),
-        ),
+    public static $classMap = array (
+        'Composer\\InstalledVersions' => __DIR__ . '/..' . '/composer/InstalledVersions.php',
     );
 
     public static function getInitializer(ClassLoader $loader)
     {
         return \Closure::bind(function () use ($loader) {
-            $loader->prefixLengthsPsr4 = ComposerStaticInit4e656435857e83b13758206aeca029c9::$prefixLengthsPsr4;
-            $loader->prefixDirsPsr4 = ComposerStaticInit4e656435857e83b13758206aeca029c9::$prefixDirsPsr4;
-            $loader->prefixesPsr0 = ComposerStaticInit4e656435857e83b13758206aeca029c9::$prefixesPsr0;
+            $loader->classMap = ComposerStaticInitb37fc9224911abb3c50c9287df83244e::$classMap;
 
         }, null, ClassLoader::class);
     }

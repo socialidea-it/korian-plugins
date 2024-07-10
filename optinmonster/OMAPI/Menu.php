@@ -172,9 +172,19 @@ class OMAPI_Menu {
 		);
 		add_action( 'load-' . $hook, array( $this, 'redirect_to_dashboard' ) );
 
-		// Register link under the appearance menu for "Popup Builder".
 		global $submenu;
-		if ( current_user_can( $this->base->access_capability( self::SLUG ) ) && $submenu ) {
+
+		if ( $submenu ) {
+			// Register link under the "Dashboard" menu for "Marketing Education" which directs to the "University".
+			// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
+			$submenu['index.php'][] = array(
+				esc_html__( 'Marketing Education', 'optin-monster-api' ),
+				$this->base->access_capability( self::SLUG ),
+				esc_url_raw( OMAPI_Urls::university() ),
+			);
+
+			// Register link under the appearance menu for "Popup Builder".
+			// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
 			$submenu['themes.php'][] = array(
 				esc_html__( 'Popup Builder', 'optin-monster-api' ),
 				$this->base->access_capability( self::SLUG ),
@@ -225,7 +235,8 @@ class OMAPI_Menu {
 		$icon = str_replace( 'fill="currentColor"', 'fill="' . $fill . '"', $icon );
 
 		if ( $return_encoded ) {
-			$icon = 'data:image/svg+xml;base64,' . base64_encode( $icon ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+			// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+			$icon = 'data:image/svg+xml;base64,' . base64_encode( $icon );
 		}
 
 		return $icon;
@@ -246,14 +257,17 @@ class OMAPI_Menu {
 			$after  = array();
 			$at_end = array( 'optin-monster-about', 'optin-monster-upgrade', 'optin-monster-bfcm' );
 			foreach ( $submenu[ self::SLUG ] as $key => $menu ) {
-				if ( isset( $menu[2] ) && in_array( $menu[2], $at_end ) ) { // phpcs:ignore WordPress.PHP.StrictInArray.MissingTrueStrict
+				// phpcs:ignore WordPress.PHP.StrictInArray.MissingTrueStrict
+				if ( isset( $menu[2] ) && in_array( $menu[2], $at_end ) ) {
 					$after[] = $menu;
 					unset( $submenu[ self::SLUG ][ $key ] );
 				}
 			}
-			$submenu[ self::SLUG ] = array_values( $submenu[ self::SLUG ] ); // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
+			// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
+			$submenu[ self::SLUG ] = array_values( $submenu[ self::SLUG ] );
 			foreach ( $after as $menu ) {
-				$submenu[ self::SLUG ][] = $menu; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
+				// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
+				$submenu[ self::SLUG ][] = $menu;
 			}
 		}
 
@@ -307,7 +321,7 @@ class OMAPI_Menu {
 	 * @return array The links array.
 	 */
 	public function maybe_add_upgrade_link( $links, $file ) {
-		if ( $file === plugin_basename( OMAPI_FILE ) ) {
+		if ( plugin_basename( OMAPI_FILE ) === $file ) {
 
 			// If user upgradeable or not registered yet, let's put an upgrade link.
 			if ( $this->base->can_show_upgrade() ) {
@@ -315,14 +329,14 @@ class OMAPI_Menu {
 					? __( 'Upgrade to Growth', 'optin-monster-api' )
 					: __( 'Upgrade to Pro', 'optin-monster-api' );
 
-				$upgradeLink = sprintf(
+				$upgrade_link = sprintf(
 					'<a class="om-plugin-upgrade-link" href="%s" aria-label="%s" target="_blank" rel="noopener">%s</a>',
 					esc_url_raw( OMAPI_Urls::upgrade( 'plugin_row_meta' ) ),
 					$label,
 					$label
 				);
 
-				array_splice( $links, 1, 0, array( $upgradeLink ) );
+				array_splice( $links, 1, 0, array( $upgrade_link ) );
 			}
 		}
 
@@ -391,6 +405,7 @@ class OMAPI_Menu {
 		add_filter( 'admin_footer_text', array( $this, 'footer' ) );
 		add_action( 'in_admin_header', array( $this, 'output_plugin_screen_banner' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'fix_plugin_js_conflicts' ), 100 );
+		add_action( 'admin_print_footer_scripts', array( $this, 'fix_plugin_js_conflicts' ), 100 );
 	}
 
 	/**
@@ -437,26 +452,29 @@ class OMAPI_Menu {
 	 * Deque specific scripts that cause conflicts on settings page. E.g.
 	 * - optimizely
 	 * - bigcommerce
+	 * - learnpress
 	 *
 	 * @since 1.1.5.9
 	 */
 	public function fix_plugin_js_conflicts() {
 		if ( $this->is_om_page() ) {
+			global $wp_scripts;
 
-			// Dequeue scripts that might cause our settings not to work properly.
-			wp_dequeue_script( 'optimizely_config' );
+			$remove = array(
+				'lp-',
+				'optimizely',
+				'bigcommerce-',
+			);
+			foreach ( $wp_scripts->queue as $script ) {
+				foreach ( $remove as $search ) {
+					if ( 0 === strpos( $script, $search ) ) {
 
-			add_action( 'admin_print_footer_scripts', array( $this, 'dequeue_bigcommerce_admin_script' ), 100 );
+						// Dequeue scripts that might cause our settings not to work properly.
+						wp_dequeue_script( $script );
+					}
+				}
+			}
 		}
-	}
-
-	/**
-	 * Deque bigcommerce admin script, as it contains conflict with our app.
-	 *
-	 * @since 2.3.0
-	 */
-	public function dequeue_bigcommerce_admin_script() {
-		wp_dequeue_script( 'bigcommerce-admin-scripts' );
 	}
 
 	/**

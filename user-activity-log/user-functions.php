@@ -22,8 +22,8 @@ if ( ! function_exists( 'ual_user_activity_table_create' ) ) {
 		$current_version = $plugin_data['Version'];
 		$table_name      = $wpdb->prefix . 'ualp_user_activity';
 		// table is not created. you may create the table here.
-		if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'" ) != $table_name ) {
-			$create_table_query = "CREATE TABLE $table_name (uactid bigint(20) unsigned NOT NULL auto_increment,post_id int(20) unsigned NOT NULL,post_title varchar(250) NOT NULL,user_id bigint(20) unsigned NOT NULL default '0',user_name varchar(50) NOT NULL,user_role varchar(50) NOT NULL,user_email varchar(50) NOT NULL,ip_address varchar(50) NOT NULL,modified_date datetime NOT NULL default '0000-00-00 00:00:00',object_type varchar(50) NOT NULL default 'post',action varchar(50) NOT NULL,PRIMARY KEY (uactid))";
+		if ( $wpdb->get_var( "SHOW TABLES LIKE '{$wpdb->prefix}ualp_user_activity'" ) != $table_name ) {
+			$create_table_query = "CREATE TABLE {$wpdb->prefix}ualp_user_activity (uactid bigint(20) unsigned NOT NULL auto_increment,post_id int(20) unsigned NOT NULL,post_title varchar(250) NOT NULL,user_id bigint(20) unsigned NOT NULL default '0',user_name varchar(50) NOT NULL,user_role varchar(50) NOT NULL,user_email varchar(50) NOT NULL,ip_address varchar(50) NOT NULL,modified_date datetime NOT NULL default '0000-00-00 00:00:00',object_type varchar(50) NOT NULL default 'post',action varchar(50) NOT NULL,PRIMARY KEY (uactid))";
 			require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 			dbDelta( $create_table_query );
 		}
@@ -257,12 +257,14 @@ if ( ! function_exists( 'ual_shook_profile_update' ) ) :
 	 * @param int $user User ID.
 	 */
 	function ual_shook_profile_update( $user ) {
-		$action     = 'profile update';
-		$obj_type   = 'user';
-		$post_id    = $user;
-		$user_nm    = get_user_by( 'id', $post_id );
-		$post_title = $user_nm->user_login;
-		ual_get_activity_function( $action, $obj_type, $post_id, $post_title );
+		if ( isset( $_REQUEST['action'] ) ) {
+			$action     = 'profile update';
+			$obj_type   = 'user';
+			$post_id    = $user;
+			$user_nm    = get_user_by( 'id', $post_id );
+			$post_title = $user_nm->user_login;
+			ual_get_activity_function( $action, $obj_type, $post_id, $post_title );
+		}
 	}
 
 endif;
@@ -323,12 +325,22 @@ if ( ! function_exists( 'ual_shook_delete_post' ) ) :
 	 */
 	function ual_shook_delete_post( $post ) {
 		global $post_type;
-		if ( did_action( 'before_delete_post' ) == 1 ) {
-			$action     = 'delete ' . $post_type;
-			$obj_type   = $post_type;
-			$post_id    = $post;
-			$post_title = get_the_title( $post_id );
-			ual_get_activity_function( $action, $obj_type, $post_id, $post_title );
+		if ( isset( $_REQUEST['action'] ) && 'delete' == $_REQUEST['action'] ) {
+			if ( isset( $_REQUEST['request_id'] ) && is_array( $_REQUEST['request_id'] ) ) {
+				$action     = 'Delete Requester';
+				$obj_type   = 'Personal Data';
+				$post_id    = $post;
+				$post_title = get_the_title( $post_id );
+				ual_get_activity_function( $action, $obj_type, $post_id, $post_title );
+			}
+		} else {
+			if ( did_action( 'before_delete_post' ) == 1 ) {
+				$action     = 'delete ' . $post_type;
+				$obj_type   = $post_type;
+				$post_id    = $post;
+				$post_title = get_the_title( $post_id );
+				ual_get_activity_function( $action, $obj_type, $post_id, $post_title );
+			}
 		}
 
 	}
@@ -509,7 +521,9 @@ if ( ! function_exists( 'ual_shook_created_term' ) ) :
 		$action           = 'created ' . $taxonomy_details->label;
 		$obj_type         = 'term';
 		$post_title       = $taxonomy_details->label . ' - ' . $term;
-		ual_get_activity_function( $action, $obj_type, $post_id, $post_title );
+		if ( ! empty( $term ) ) {
+			ual_get_activity_function( $action, $obj_type, $post_id, $post_title );
+		}
 		return $term;
 	}
 
@@ -726,6 +740,7 @@ if ( ! function_exists( 'ual_shook_transition_post_status' ) ) {
 	 */
 	function ual_shook_transition_post_status( $post_id, $post ) {
 		global $old_post_data;
+		global $wpdb;
 		$old_post_data_detail = isset( $old_post_data['post_data'] ) ? $old_post_data['post_data'] : '';
 		if ( isset( $old_post_data_detail ) && '' != $old_post_data_detail ) {
 			$oldstatus = $old_post_data_detail->post_status;
@@ -751,23 +766,33 @@ if ( ! function_exists( 'ual_shook_transition_post_status' ) ) {
 			$action = $obj_type . ' drafted';
 		} elseif ( 'draft' === $old_status && 'publish' == $new_status && '0000-00-00 00:00:00' == $old_post_data['post_data']->post_date_gmt ) {
 			$action = $obj_type . ' created';
-		} elseif ( 'trash' === $new_status ) {
-			$action = $obj_type . ' trashed';
-		} elseif ( 'trash' === $old_status ) {
-			$action = $obj_type . ' restored';
-		} elseif ( 'publish' === $old_status && 'draft' != $old_status ) {
+		} elseif ( 'publish' === $old_status && 'trash' != $new_status ) {
 			$action = $obj_type . ' updated';
-		} elseif ( 'publish' === $new_status && 'draft' != $old_status ) {
+		} elseif ( 'publish' === $old_status && 'publish' === $new_status ) {
+			$action = $obj_type . ' updated';
+		} elseif ( 'publish' === $new_status && 'draft' != $old_status && '0000-00-00 00:00:00' === $old_post_data['post_data']->post_date_gmt ) {
 			$action = $obj_type . ' created';
-		} elseif ( 'publish' != $new_status && 'draft' == $old_status ) {
-			$action = $obj_type . ' drafted';
+		} elseif ( 'publish' === $old_status && 'draft' != $old_status ) {
+			$action = $obj_type . ' trashed';
+		} elseif ( 'publish' === $new_status && 'draft' != $old_status ) {
+			$action = $obj_type . ' restored';
 		} else {
-			$action = $obj_type . ' updated';
+			return;
 		}
 		foreach ( $roles as $role ) {
 			if ( 'contributor' == $role ) {
 				$action = $obj_type . ' is submit for review';
 			}
+		}
+		$selctquery           = $wpdb->get_results( "SELECT uactid,modified_date,post_id FROM {$wpdb->prefix}ualp_user_activity" . ' ORDER BY uactid  DESC LIMIT 1' );
+			$current_datetime = current_datetime()->format( 'Y-m-d H:i:s' );
+		foreach ( $selctquery as $key => $value ) {
+			$lastentrydate   = $value->modified_date;
+			$lastentrypostid = $value->post_id;
+			break;
+		}
+		if ( isset( $post_id ) && isset( $lastentrydate ) && $post_id == $lastentrypostid && $current_datetime == $lastentrydate ) {
+			  return;
 		}
 		ual_get_activity_function( $action, $obj_type, $post_id, $post_title );
 	}
@@ -789,6 +814,22 @@ if ( ! function_exists( 'ual_shook_deactivated_plugin' ) ) :
 	}
 
 endif;
+
+if ( ! function_exists( 'ual_shook_delete_plugin' ) ) {
+	/**
+	 * Get activity for the user - Delete Plugin.
+	 *
+	 * @param string $plugin file name.
+	 */
+	function ual_shook_delete_plugin( $plugin ) {
+			$action      = 'Plugin Deleted';
+			$obj_type    = 'plugin';
+			$post_id     = '';
+			$plugin_data = get_plugin_data( WP_PLUGIN_DIR . '/' . $plugin, true, false );
+			$post_title  = $plugin_data['Name'];
+			ual_get_activity_function( $action, $obj_type, $post_id, $post_title );
+	}
+}
 
 if ( ! function_exists( 'shook_core_updated_successfully' ) ) :
 	/**
@@ -880,13 +921,14 @@ add_action( 'load-nav-menus.php', 'ual_shook_wp_update_nav_menu' );
 add_action( 'wp_create_nav_menu', 'ual_shook_wp_create_nav_menu' );
 add_action( 'activated_plugin', 'ual_shook_activated_plugin' );
 add_action( 'deactivated_plugin', 'ual_shook_deactivated_plugin' );
+add_action( 'delete_plugin', 'ual_shook_delete_plugin' );
 add_filter( 'pre_insert_term', 'ual_shook_created_term', 10, 2 );
 add_action( 'edited_term', 'ual_shook_edited_term', 10, 3 );
 add_action( 'pre_delete_term', 'ual_shook_delete_term', 10, 2 );
 add_action( 'switch_theme', 'ual_shook_switch_theme' );
 add_action( 'customize_save', 'ual_shook_customize_save' );
 add_action( 'export_wp', 'ual_shook_export_wp' );
-add_action( 'save_post', 'ual_shook_transition_post_status', 100, 2 );
+add_action( 'post_updated', 'ual_shook_transition_post_status', 100, 2 );
 add_action( 'delete_site_transient_update_themes', 'ual_shook_theme_deleted' );
 
 if ( ! function_exists( 'ual_shook_wp_login_failed' ) ) :
@@ -929,17 +971,44 @@ if ( ! function_exists( 'ual_shook_wp_login_failed' ) ) :
 			}
 
 			if ( ! empty( $current_user_display_name ) ) {
-				$countwploginfailed = $wpdb->get_var( 'SELECT COUNT(`uactid`) FROM ' . $table_name . ' where action="login failed" AND post_title="' . $user . '"' );
-				if ( $login_failed_existing_user > 0 && $countwploginfailed >= $login_failed_existing_user ) {
-					ual_user_activity_add( $post_id, $post_title, $obj_type, $current_user_id, $current_user_display_name, $user_role, $user_mail, $modified_date, $ip, $action );
+				$countwploginfailed = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(`uactid`) FROM {$wpdb->prefix}ualp_user_activity where action='login failed' AND post_title=%s", $user ) );
+				$countexistinguser  = get_post_meta( $current_user_id, 'existing_user_count', true );
+				if ( ! empty( $login_failed_existing_user ) && $login_failed_existing_user > 0 ) {
+					if ( isset( $countexistinguser ) && ! empty( $countexistinguser ) ) {
+						if ( $countexistinguser >= $login_failed_existing_user ) {
+							$countwploginfailed = $countexistinguser;
+							if ( $login_failed_existing_user > 0 && $countwploginfailed >= $login_failed_existing_user ) {
+								ual_user_activity_add( $post_id, $post_title, $obj_type, $current_user_id, $current_user_display_name, $user_role, $user_mail, $modified_date, $ip, $action );
+							}
+						} else {
+							update_post_meta( $current_user_id, 'existing_user_count', $countexistinguser + 1 );
+						}
+					} else {
+						update_post_meta( $current_user_id, 'existing_user_count', 1 );
+					}
 				} else {
 					ual_user_activity_add( $post_id, $post_title, $obj_type, $current_user_id, $current_user_display_name, $user_role, $user_mail, $modified_date, $ip, $action );
 				}
 			} else {
 				$current_user_display_name = 'guest';
-				$countwploginfailed        = $wpdb->get_var( 'SELECT COUNT(`uactid`) FROM ' . $table_name . ' where action="login failed" AND post_title="' . $user . '"' );
-				if ( $login_failed_non_existing_user > 0 && $countwploginfailed >= $login_failed_non_existing_user ) {
-					ual_user_activity_add( $post_id, $post_title, $obj_type, $current_user_id, $current_user_display_name, $user_role, $user_mail, $modified_date, $ip, $action );
+				$countwploginfailed        = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(`uactid`) FROM {$wpdb->prefix}ualp_user_activity where action='login failed' AND post_title=%s", $user ) );
+				$nonexistingusername       = get_option( 'nonexisting_user_name' );
+				$nonexistingusercount      = get_option( $nonexistingusername );
+				if ( ! empty( $login_failed_non_existing_user ) && $login_failed_non_existing_user > 0 ) {
+					if ( $user == $nonexistingusername && isset( $nonexistingusercount ) && ! empty( $nonexistingusercount ) ) {
+						if ( $nonexistingusercount >= $login_failed_non_existing_user ) {
+							$countwploginfailed = $nonexistingusercount;
+							if ( $login_failed_non_existing_user > 0 && $countwploginfailed >= $login_failed_non_existing_user ) {
+								ual_user_activity_add( $post_id, $post_title, $obj_type, $current_user_id, $current_user_display_name, $user_role, $user_mail, $modified_date, $ip, $action );
+							}
+						} else {
+							$nonexistingusername  = update_option( 'nonexisting_user_name', $user );
+							$nonexistingusercount = update_option( $user, $nonexistingusercount + 1 );
+						}
+					} else {
+						$nonexistingusername  = update_option( 'nonexisting_user_name', $user );
+						$nonexistingusercount = update_option( $user, 1 );
+					}
 				} else {
 					ual_user_activity_add( $post_id, $post_title, $obj_type, $current_user_id, $current_user_display_name, $user_role, $user_mail, $modified_date, $ip, $action );
 				}
@@ -963,6 +1032,9 @@ if ( ! function_exists( 'ual_shook_widget_update_callback' ) ) :
 	function ual_shook_widget_update_callback( $instance, $new_instance, $old_instance, $widget_instance ) {
 
 		if ( empty( $old_instance ) ) {
+			return $instance;
+		}
+		if ( $new_instance == $old_instance ) {
 			return $instance;
 		}
 		$action       = 'widget updated';
@@ -1033,6 +1105,140 @@ if ( ! function_exists( 'ual_shook_widget_added_deleted' ) ) {
 }
 add_action( 'sidebar_admin_setup', 'ual_shook_widget_added_deleted' );
 
+
+add_filter( 'wp_privacy_personal_data_exporters', 'ual_shook_register_exporter', 10 );
+
+if ( ! function_exists( 'ual_shook_register_exporter' ) ) {
+	/**
+	 * Register Exporter Function.
+	 *
+	 * @param array $exporters_array Exporters Array.
+	 */
+	function ual_shook_register_exporter( $exporters_array ) {
+		$exporters_array['ual_exporter'] = array(
+			'exporter_friendly_name' => 'UAL exporter',
+			'callback'               => 'ual_shook_exporter_function',
+		);
+		return $exporters_array;
+	}
+}
+
+/**
+ * Exporter Function.
+ *
+ * @param string $email_address Email Address.
+ * @param string $iteration Iteration.
+ */
+function ual_shook_exporter_function( $email_address, $iteration = 1 ) {
+
+	$iteration    = (int) $iteration;
+	$export_items = array();
+
+	$orders = get_posts(
+		array(
+			'post_type'      => 'export_personal_data',
+			'posts_per_page' => -1,
+			'paged'          => $iteration,
+			'meta_key'       => 'user_email',
+			'meta_value'     => $email_address,
+		)
+	);
+	if ( $orders ) {
+
+		foreach ( (array) $orders as $order ) {
+
+			$data = array(
+				array(
+					'name'  => 'Full Name',
+					'value' => get_post_meta( $order->ID, 'nickname', true ),
+				),
+				array(
+					'name'  => 'Email',
+					'value' => $email_address,
+				),
+			);
+
+			$export_items[] = array(
+				'group_id'    => 'orders',
+				'group_label' => 'Orders',
+				'item_id'     => 'order-' . $order->ID,
+				'data'        => $data,
+			);
+		}
+	}
+
+	$action     = 'Downloaded';
+	$obj_type   = 'Export Personal Data';
+	$post_id    = '';
+	$post_title = "$obj_type $action";
+	ual_get_activity_function( $action, $obj_type, $post_id, $post_title );
+
+	$done = count( $orders ) < 100;
+	return array(
+		'data' => $export_items,
+		'done' => $done,
+	);
+}
+
+
+add_filter( 'wp_privacy_personal_data_erasers', 'ual_shook_register_my_eraser', 10 );
+
+if ( ! function_exists( 'ual_shook_register_my_eraser' ) ) {
+	/**
+	 * Register Eraser Function.
+	 *
+	 * @param array $erasers Erasers.
+	 */
+	function ual_shook_register_my_eraser( $erasers ) {
+		$erasers['ual_eraser'] = array(
+			'eraser_friendly_name' => 'UAL eraser',
+			'callback'             => 'ual_shook_eraser_function',
+		);
+		return $erasers;
+	}
+}
+
+/**
+ * Eraser Function.
+ *
+ * @param string $email_address Email Address.
+ * @param string $iteration Iteration.
+ */
+function ual_shook_eraser_function( $email_address, $iteration = 1 ) {
+
+	$iteration     = (int) $iteration;
+	$items_removed = false;
+	$orders        = get_posts(
+		array(
+			'post_type'      => 'export_personal_data',
+			'posts_per_page' => -1,
+			'paged'          => $iteration,
+			'meta_key'       => 'user_email',
+			'meta_value'     => $email_address,
+		)
+	);
+	if ( $orders ) {
+
+		foreach ( (array) $orders as $order ) {
+			delete_post_meta( $order->ID, 'user_email' );
+			$items_removed = true;
+		}
+	}
+
+	$action     = 'successfully';
+	$obj_type   = 'Erase Personal Data';
+	$post_id    = '';
+	$post_title = "$obj_type $action";
+	ual_get_activity_function( $action, $obj_type, $post_id, $post_title );
+
+	$done = count( $orders ) < $iteration;
+	return array(
+		'items_removed'  => $items_removed,
+		'items_retained' => false,
+		'messages'       => array( '' ),
+		'done'           => $done,
+	);
+}
 
 if ( ! function_exists( 'ual_test_input' ) ) {
 	/**
@@ -1386,7 +1592,6 @@ if ( ! function_exists( 'ual_latest_activity_logs' ) ) {
 						}
 					}
 				}
-
 			}
 		}
 		/**
@@ -1411,8 +1616,7 @@ if ( ! function_exists( 'ual_latest_activity_logs' ) ) {
 
 				$start_date       = $dt->format( 'Y-m-d 00:00:00' );
 				$enddate          = $dt->format( 'Y-m-d 23:59:59' );
-				$get_log_query    = 'SELECT COUNT(*) FROM ' . $table_name . " WHERE modified_date >= '" . $start_date . "' AND  modified_date < '" . $enddate . "' ORDER BY modified_date desc";
-				$result_log_query = $wpdb->get_var( $get_log_query );
+				$result_log_query = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}ualp_user_activity WHERE modified_date >= %s  AND  modified_date < %s ORDER BY modified_date desc", $start_date, $enddate ) );
 				$stats_labels[]   = $str_date;
 
 				$stats_labels_to_datetime[] = array(
@@ -1435,7 +1639,7 @@ if ( ! function_exists( 'ual_latest_activity_logs' ) ) {
 				<?php
 				printf(
 					// translators:.
-					__( '<b>%1$s events</b> have been log the last <b>28 days</b>.', 'user-activity-log' ),
+					wp_kses( '<b>%1$s events</b> have been log the last <b>28 days</b>.', args_kses() ),
 					esc_html( $sum_of_count )
 				);
 				?>
@@ -1566,11 +1770,11 @@ if ( ! function_exists( 'ual_enable_user_for_notification' ) ) {
 			if ( isset( $enableuser ) && '' != $enableuser ) {
 				if ( 'users' == $display ) {
 					$enableusertemp = get_option( 'enable_user_list_temp', true );
-					if ( '' == $enableusertemp ) {
+					if ( '' == $enableusertemp || ! is_array( $enableusertemp ) ) {
 						$enableusertemp = array();
 					}
 					if ( 'true' == $selected ) {
-						if ( ! in_array( $enableuser, $enableusertemp ) ) {
+						if ( is_array( $enableusertemp ) && ! in_array( $enableuser, $enableusertemp ) ) {
 							array_push( $enableusertemp, $enableuser );
 						}
 					} else {
@@ -1994,27 +2198,28 @@ function args_kses() {
  * Detect Ip address
  *
  * @since    1.6
- * @return string
+ * @param string $get_ip_type Get the IP Type.
  */
-function ual_get_ip() {
-	$ipaddress = '';
-    if (getenv('HTTP_CLIENT_IP'))
-        $ipaddress = getenv('HTTP_CLIENT_IP');
-    else if(getenv('HTTP_X_FORWARDED_FOR'))
-        $ipaddress = getenv('HTTP_X_FORWARDED_FOR');
-    else if(getenv('HTTP_X_FORWARDED'))
-        $ipaddress = getenv('HTTP_X_FORWARDED');
-    else if(getenv('HTTP_FORWARDED_FOR'))
-        $ipaddress = getenv('HTTP_FORWARDED_FOR');
-    else if(getenv('HTTP_FORWARDED'))
-       $ipaddress = getenv('HTTP_FORWARDED');
-    else if(getenv('REMOTE_ADDR'))
-        $ipaddress = getenv('REMOTE_ADDR');
-
-	if(filter_var($ipaddress, FILTER_VALIDATE_IP)) {
-		return $ipaddress;
+function ual_get_ip( $get_ip_type = null ) {
+	if ( null === $get_ip_type ) {
+		$get_ip_type = get_option( 'ualIPtypes', 'REMOTE_ADDR' );
 	}
-    else {
+	if ( $get_ip_type ) {
+		if ( 'REMOTE_ADDR' == $get_ip_type ) {
+			$ipaddress = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
+		} elseif ( 'HTTP_X_FORWARDED_FOR' == $get_ip_type ) {
+			$ipaddress = isset( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ) : '';
+		} elseif ( 'HTTP_X_REAL_IP' == $get_ip_type ) {
+			$ipaddress = isset( $_SERVER['HTTP_X_REAL_IP'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_REAL_IP'] ) ) : '';
+		} else {
+			$ipaddress = sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) );
+		}
+	} else {
+		$ipaddress = sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) );
+	}
+	if ( filter_var( $ipaddress, FILTER_VALIDATE_IP ) ) {
+		return $ipaddress;
+	} else {
 		return '';
 	}
 }

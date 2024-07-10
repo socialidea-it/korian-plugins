@@ -1,67 +1,57 @@
 <?php
 
+declare(strict_types=1);
+
 namespace ACP\Sorting\Model\Post;
 
-use ACP\Sorting\AbstractModel;
-use ACP\Sorting\Type\DataType;
-use WP_Query;
+use ACP\Query\Bindings;
+use ACP\Sorting\Model\QueryBindings;
+use ACP\Sorting\Model\SqlOrderByFactory;
+use ACP\Sorting\Type\Order;
 
-class Taxonomy extends AbstractModel {
+class Taxonomy implements QueryBindings
+{
 
-	/**
-	 * @var string
-	 */
-	private $taxonomy;
+    private $taxonomy;
 
-	public function __construct( $taxonomy, $show_empty = null ) {
-		parent::__construct( new DataType( DataType::STRING ), $show_empty );
+    public function __construct(string $taxonomy)
+    {
+        $this->taxonomy = $taxonomy;
+    }
 
-		$this->taxonomy = (string) $taxonomy;
-	}
+    public function create_query_bindings(Order $order): Bindings
+    {
+        global $wpdb;
 
-	public function get_sorting_vars() {
-		add_filter( 'posts_clauses', [ $this, 'sorting_clauses_callback' ], 10, 2 );
+        $bindings = new Bindings();
+        $alias = $bindings->get_unique_alias('tax');
 
-		return [
-			'suppress_filters' => false,
-		];
-	}
+        $sub_query = $wpdb->prepare(
+            "
+            SELECT *
+            FROM (
+                SELECT DISTINCT acsort_tr.object_id, acsort_t.slug
+                FROM $wpdb->term_taxonomy AS acsort_tt
+                INNER JOIN $wpdb->term_relationships acsort_tr
+                    ON acsort_tt.term_taxonomy_id = acsort_tr.term_taxonomy_id
+                INNER JOIN $wpdb->terms AS acsort_t
+                    ON acsort_t.term_id = acsort_tt.term_id
+                WHERE taxonomy = %s
+                ORDER BY acsort_t.slug
+            ) AS acsort_main
+            GROUP BY acsort_main.object_id
+        ",
+            $this->taxonomy
+        );
 
-	/**
-	 * Setup clauses to sort by taxonomies
-	 *
-	 * @param array    $clauses array
-	 * @param WP_Query $query
-	 *
-	 * @return array
-	 * @since 3.4
-	 */
-	public function sorting_clauses_callback( $clauses, $query ) {
-		global $wpdb;
+        $bindings->join(
+            "LEFT JOIN ($sub_query) as $alias ON $wpdb->posts.ID = $alias.object_id"
+        );
+        $bindings->order_by(
+            SqlOrderByFactory::create("$alias.slug", (string)$order)
+        );
 
-		$join_type = $this->show_empty ? 'LEFT JOIN' : 'INNER JOIN';
-
-		$clauses['join'] .= "
-            {$join_type}(
-                SELECT *
-                FROM (
-                    SELECT DISTINCT acsort_tr.object_id, acsort_t.slug
-					FROM {$wpdb->term_taxonomy} AS acsort_tt
-					INNER JOIN {$wpdb->term_relationships} acsort_tr
-						ON acsort_tt.term_taxonomy_id = acsort_tr.term_taxonomy_id
-					INNER JOIN {$wpdb->terms} AS acsort_t
-						ON acsort_t.term_id = acsort_tt.term_id
-					WHERE taxonomy = '{$this->taxonomy}'
-					ORDER BY acsort_t.slug ASC
-				) as acsort_main
-				GROUP BY acsort_main.object_id
-            ) as acsort_terms ON {$wpdb->posts}.ID = acsort_terms.object_id
-        ";
-		$clauses['orderby'] = "acsort_terms.slug " . $query->query_vars['order'];
-
-		remove_filter( 'posts_clauses', [ $this, __FUNCTION__ ] );
-
-		return $clauses;
-	}
+        return $bindings;
+    }
 
 }

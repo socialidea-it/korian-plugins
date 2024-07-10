@@ -410,6 +410,11 @@ body.acf-admin-5-3 .acf-field-setting-fc_layout .acf-input-wrap.select select {
     margin-top: 4px
 }
 
+.acf-admin-6.acf-admin-field-groups .subsubsub {
+    -ms-flex-wrap: wrap;
+    flex-wrap: wrap
+}
+
 .acf-admin-6.acf-admin-single-field-group .wrap>#message.updated {
     margin-bottom: 16px !important
 }
@@ -432,6 +437,29 @@ body.acf-admin-5-3 .acf-field-setting-fc_layout .acf-input-wrap.select select {
 
 .acf-admin-6.acf-admin-single-field-group .acf-repeater .acf-actions .acf-button {
     float: left
+}
+
+.acf-admin-6.acf-admin-single-field-group .acf-input .select2-container--default .select2-selection--single {
+    height: auto
+}
+
+.acf-admin-6.acf-admin-single-field-group .acf-input .select2-container--default .select2-selection--single .select2-selection__rendered {
+    padding: 0 6px
+}
+
+.acf-admin-6.acf-admin-single-field-group .acf-input .select2-container--default .select2-selection--single .select2-selection__rendered .acf-selection {
+    padding: 10px 5px;
+    display: block;
+    line-height: 1.5
+}
+
+.acf-admin-6.acf-admin-single-field-group .acf-input .select2-container--default .select2-selection--single .select2-selection__rendered .select2-selection__clear {
+    margin-top: 13px;
+    margin-right: 11px
+}
+
+.acf-admin-6.acf-admin-single-field-group .acf-input .select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 40px
 }
 
 .acf-admin-6.acf-admin-single-field-group #acf-field-group-options .acf-field .acf-table>tbody>tr>td,
@@ -620,6 +648,11 @@ body.acf-admin-5-3 .acf-field-setting-fc_layout .acf-input-wrap.select select {
     width: 100%
 }
 
+.acf-admin-6.acf-admin-single-field-group .acf-field-setting-acfe_permissions>.acf-input>ul {
+    -ms-flex-wrap: wrap;
+    flex-wrap: wrap
+}
+
 .acf-admin-6.acf-admin-single-field-group .acf-field-setting-acfe_field_group_condition {
     padding-right: 72px;
     padding-left: 72px;
@@ -645,4 +678,16 @@ body.acf-admin-5-3 .acf-field-setting-fc_layout .acf-input-wrap.select select {
 .acf-admin-6.acf-admin-single-field-group .acf-hl[data-cols="6"]>li:nth-child(5),
 .acf-admin-6.acf-admin-single-field-group .acf-hl[data-cols="6"]>li:nth-child(6) {
     margin-top: 10px
+}
+
+.acf-admin-6.acf-admin-single-field-group .acf-field-type-settings .acf-field {
+    border-top-width: 0
+}
+
+.acf-admin-6.acf-admin-single-field-group #acf-field-group-fields.hide-tabs .acf-field-setting-fc_layout>.acf-input>.acf-fc-meta .acf-field.acfe-flexible-field-setting {
+    margin-bottom: 0
+}
+
+.acf-admin-6.acf-admin-single-field-group #acf-field-group-fields.hide-tabs .acf-field-setting-fc_layout>.acf-input>.acf-fc-meta .acf-field.acfe-flexible-field-setting+li>ul {
+    margin-bottom: 0
 }

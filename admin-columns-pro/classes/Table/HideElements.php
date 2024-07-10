@@ -3,13 +3,14 @@
 namespace ACP\Table;
 
 use AC\ListScreen;
-use AC\Registrable;
+use AC\Registerable;
 use ACP\Search;
 use ACP\Settings\ListScreen\HideOnScreen;
 
-final class HideElements implements Registrable {
+final class HideElements implements Registerable {
 
-	public function register() {
+	public function register(): void
+    {
 		add_action( 'ac/table_scripts', [ $this, 'hide_elements' ] );
 	}
 

@@ -1,6 +1,133 @@
 # Changelog
 All notable changes to the OptinMonster plugin will be documented in this file.
 
+### 2.16.4 - 2024-07-05
+* Fixed an issue where "Never load on..." output settings were hidden.
+
+### 2.16.3 - 2024-07-01
+* Improved template filtering.
+* Added custom field support to our MailPoet integration.
+* Improved the campaign creation modal.
+* Security and performance improvements.
+* Various npm package updates used for generating our JavaScript code.
+
+### 2.16.2 - 2024-05-16
+* Improved browser coverage.
+
+### 2.16.1 - 2024-04-23
+* Improved About Us page.
+* Updates and improvements to our Gutenberg block.
+* Various npm package updates used for generating our JavaScript code.
+
+### 2.16.0 - 2024-02-22
+* Added integration with Uncanny Automator.
+* Improved University page.
+* Improved security check for dismiss pointer.
+* Update dependencies for security and performance improvements.
+
+### 2.15.3 - 2024-01-03
+* Updates to onboarding.
+
+### 2.15.2 - 2024-01-02
+* Improved onboarding for new users.
+
+### 2.15.1 - 2023-12-06
+* Updates and improvements to our Gutenberg block.
+* Improved connection flow.
+
+### 2.15.0 - 2023-11-15
+* Improved connection flow and onboarding for new/existing users.
+* Fixed filtering bug on Playbooks page.
+* Improved process for those intending to upgrade.
+* Various npm package updates used for generating our JavaScript code.
+
+### 2.14.1 - 2023-10-12
+
+* Updates to the OptinMonster submenu.
+* Removed code related to the output and retrieval of legacy campaigns.
+* Fixed issue where the display rule summary could be blank.
+* Transitioned "Pardot" to "Salesforce Marketing Cloud Account Engagement" to reflect their rebranding.
+* Various npm package updates used for generating our JavaScript code.
+
+### 2.14.0 - 2023-09-28
+* UI updates and improvements to template filtering.
+* Update to allow a new integrations to be set as the default integration during creation.
+* Fixed an issue where an integration using Google Analytics 4 could not be created from within the plugin.
+* Fixed an issue where negative numbers could be entered for cookie duration values.
+
+### 2.13.8 - 2023-08-25
+* Declares compatibility with WooCommerce High-Performance Order Storage
+* Improvements to campaign template searching and filtering
+* Various improvements and updates to copy
+
+### 2.13.7 - 2023-07-27
+* Fixed PHP error with previous release
+
+### 2.13.6 - 2023-07-26
+* Improvements to campaign Output Settings page.
+* Transitioned SendInBlue to Brevo to reflect their rebranding.
+* Fixed a scenario where the campaign type filter could switch the a campaign status filter when clearing the field
+* Improved compatibility with PHP 8.1 and PHP 8.2.
+* Updates to npm packages used to build JS.
+
+### 2.13.5 - 2023-06-22
+* Improvements to onboarding flow.
+* Improvements MemberPress integration.
+* Changes to prepare for the upcoming retirement of legacy campaigns.
+
+### 2.13.4 - 2023-06-06
+* Fixed a bug where elementor support could cause JavaScript errors.
+* Fixed various issues the could occur as a result of connecting to the OptinMonster app as a sub-account.
+* Added information to the account connection setting to make it easier to see which account is connected.
+* Improved support for Australian time zones
+* Improved support for Gravity Forms.
+* Updates to npm packages used to build JS.
+
+### 2.13.3 - 2023-06-06
+* Skipped.
+
+### 2.13.2 - 2023-04-25
+* Changes to display rule display to prepare for future upgrades.
+* Updates to npm packages used to build JS.
+* Fixed error that could occur for sites running the Easy Digital Downloads integration and PHP 8.
+* Reorganization of display rule categories on the "Personalization" settings page.
+* Fixed PHP warning that could occur when determining which campaigns to output on a page.
+
+### 2.13.1 - 2023-04-03
+* Added announcements/product education widgets to the Dashboard page.
+* Fixed an issue where initiating a campaign search failed to reset pagination.
+* Fixed the incorrect number of campaigns listed in "Lite vs Pro" comparison table.
+* Updated the support link to point to WordPress.org support for free users.
+* Maintenance updates for an npm package, Babel configuration.
+
+### 2.13.0 - 2023-03-10
+* Introduce integration support with MemberPress!
+* Improve compatability with LearnPress LMS plugin
+* Fixed issue where errors could appear on the campaign output settings page preventing output settings from being edited.
+* Fixed an issue where campaign output settings could disappear making if difficult to edit the output settings.
+* Various npm package updates used for generating our JavaScript code.
+
+### 2.12.2 - 2023-02-10
+* Security update to ensure OptinMonster shortcodes can only load from the campaign post-type.
+
+### 2.12.1 - 2023-02-03
+* Fixed Template preview button text stuck on "Loading Preview".
+
+### 2.12.0 - 2023-02-02
+* Fixed wp_enqueue_script error on widgets page.
+* Addresses issues with page caching by fetching rules data for Easy Digital Downloads and WooCommerce via ajax.
+* Small improvements to onbaording
+* Updated bundled version of Vue and related dependencies to address some security scanners.
+* Introduced Playbooks to the plugin
+
+### 2.11.2 - 2023-01-18
+* Fixed issue where plain-text shortcode output could be parsed by search engines.
+* Set minimum Elementor support to 3.1.0, and fix deprecated function warnings.
+* Update code initialization logic to allow just-in-time loading and preventing some errors.
+* Various npm packages updates used for generating our JavaScript code.
+* Remove references to Bronto, as Bronto shutdown as a service.
+* Fix issue where inline campaigns would be could show excerpts.
+
 ### 2.11.1 - 2022-11-29
 * Fix occasional undefined variable warning in logs
 * Maintenance updates to some JS packages

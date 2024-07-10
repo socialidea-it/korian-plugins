@@ -121,8 +121,10 @@ class Profile
 
         $group_types = $pp_groups->getGroupTypes(['editable' => true]);
 
+        $is_main_site = (defined('PRESSPERMIT_LEGACY_MAIN_SITE_CHECK')) ? (1 == get_current_blog_id()) : is_main_site();
+
         foreach ($group_types as $agent_type) {
-            if (('pp_group' == $agent_type) && in_array('pp_net_group', $group_types, true) && (1 == get_current_blog_id())) {
+            if (('pp_group' == $agent_type) && in_array('pp_net_group', $group_types, true) && $is_main_site) {
                 continue;
             }
 
@@ -190,7 +192,8 @@ class Profile
 
             echo "</h3>";
 
-            $single_select = ('user-new.php' == $pagenow) || (!empty($_REQUEST['pp_ajax_user']) && ('new_user_groups_ui' == $_REQUEST['pp_ajax_user']))
+            // This ajax request is just to return UI
+            $single_select = ('user-new.php' == $pagenow) || ('new_user_groups_ui' == PWP::REQUEST_key('pp_ajax_user'))
             ? defined('PRESSPERMIT_ADD_USER_SINGLE_GROUP_SELECT') 
             : defined('PRESSPERMIT_EDIT_USER_SINGLE_GROUP_SELECT');
 
@@ -243,6 +246,8 @@ class Profile
         }  // end foreach agent_type
 
         echo "<input type='hidden' name='pp_editing_user_groups' value='1' />";
+
+        wp_nonce_field('pp-user-profile-groups', '_pp_permissions_nonce');
     }
     
     public static function listAgentExceptions($agent_type, $id, $args = [])
@@ -349,7 +354,6 @@ class Profile
                 ?>
             </h3>
         <?php 
-
         if (!$any_exceptions_listed = self::listAgentExceptions($agent_type, $agent_id, $args)) :
             ob_clean();
         else :?>

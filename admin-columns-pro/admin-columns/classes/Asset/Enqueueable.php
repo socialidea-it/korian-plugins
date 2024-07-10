@@ -2,62 +2,49 @@
 
 namespace AC\Asset;
 
-abstract class Enqueueable {
+use AC\Asset\Location\Absolute;
 
-	/**
-	 * @var string
-	 */
-	protected $handle;
+abstract class Enqueueable
+{
 
-	/**
-	 * @var Location|null
-	 */
-	protected $location;
+    /**
+     * @var string
+     */
+    protected $handle;
 
-	/**
-	 * @var string[]
-	 */
-	protected $dependencies;
+    /**
+     * @var Absolute|null
+     */
+    protected $location;
 
-	/**
-	 * @param string   $handle
-	 * @param Location $location
-	 * @param array    $dependencies
-	 */
-	public function __construct( $handle, Location $location = null, array $dependencies = [] ) {
-		$this->handle = (string) $handle;
-		$this->location = $location;
-		$this->dependencies = $dependencies;
-	}
+    /**
+     * @var string[]
+     */
+    protected $dependencies;
 
-	/**
-	 * @return string
-	 */
-	public function get_handle() {
-		return $this->handle;
-	}
+    public function __construct(string $handle, Absolute $location = null, array $dependencies = [])
+    {
+        $this->handle = $handle;
+        $this->location = $location;
+        $this->dependencies = $dependencies;
+    }
 
-	/**
-	 * @return int|null
-	 */
-	protected function get_version() {
-		$path = $this->location->get_path();
+    public function get_handle(): string
+    {
+        return $this->handle;
+    }
 
-		return file_exists( $path )
-			? filemtime( $path )
-			: null;
-	}
+    protected function get_version(): ?int
+    {
+        $path = $this->location->get_path();
 
-	/**
-	 * @return void
-	 */
+        return file_exists($path)
+            ? filemtime($path)
+            : null;
+    }
 
-	abstract public function register();
+    abstract public function register(): void;
 
-	/**
-	 * @return void
-	 */
-
-	abstract public function enqueue();
+    abstract public function enqueue(): void;
 
 }

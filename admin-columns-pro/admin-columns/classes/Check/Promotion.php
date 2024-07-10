@@ -7,20 +7,23 @@ use AC\Capabilities;
 use AC\Message\Notice\Dismissible;
 use AC\Preferences;
 use AC\Promo;
-use AC\Registrable;
+use AC\Registerable;
 use AC\Screen;
 
 final class Promotion
-	implements Registrable {
+	implements Registerable {
 
-	/** @var Promo */
+	/**
+	 * @var Promo
+	 */
 	private $promo;
 
 	public function __construct( Promo $promo ) {
 		$this->promo = $promo;
 	}
 
-	public function register() {
+	public function register(): void
+    {
 		add_action( 'ac/screen', [ $this, 'display' ] );
 
 		$this->get_ajax_handler()->register();

@@ -7,7 +7,7 @@ namespace PublishPress\Permissions;
  *
  * @package PressPermit
  * @author Kevin Behrens <kevin@agapetry.net>
- * @copyright Copyright (c) 2019, PublishPress
+ * @copyright Copyright (c) 2024, PublishPress
  *
  */
 class PostFilters
@@ -15,6 +15,7 @@ class PostFilters
     private static $instance;
 
     var $skip_teaser;  // for use by templates making a direct call to query_posts for non-teased results
+    var $doing_unfiltered_shortcode = false;
     var $anon_results = [];
 
     public static function instance($args = []) {
@@ -49,6 +50,26 @@ class PostFilters
         add_filter('posts_distinct', [$this, 'fltPostsDistinct'], 10, 2);
 
         add_filter('presspermit_force_post_metacap_check', [$this, 'fltForcePostMetacapCheck'], 10, 2);
+
+        add_filter('pre_do_shortcode_tag', function($do_tag, $tag, $attr, $m) {
+			$this->doing_unfiltered_shortcode = in_array(
+				$tag, 
+				apply_filters('presspermit_unfiltered_shortcodes', ['fl_builder_insert_layout']),
+				true
+			);
+
+            if ($this->doing_unfiltered_shortcode) {
+                $this->doing_unfiltered_shortcode = apply_filters('presspermit_is_unfiltered_shortcode', $this->doing_unfiltered_shortcode, $tag, $attr, $m);
+            }
+			
+			return $do_tag;
+		}, 10, 4);
+			
+		add_filter('do_shortcode_tag', function($output, $tag, $attr, $m) {
+			$this->doing_unfiltered_shortcode = false;
+			
+			return $output;
+		}, 10, 4);
 
         do_action('presspermit_post_filters');
     }
@@ -127,7 +148,8 @@ class PostFilters
     private function getTeaserPostTypes($post_types, $args = [])
     {
         if (
-            is_admin() || presspermit()->isContentAdministrator() || !empty($args['skip_teaser'])
+        	(is_admin() && (!defined('DOING_AJAX') || ! DOING_AJAX))
+        	|| presspermit()->isContentAdministrator() || !empty($args['skip_teaser'])
             || defined('XMLRPC_REQUEST') || (defined('REST_REQUEST') && REST_REQUEST)
         ) {
             return [];
@@ -140,20 +162,37 @@ class PostFilters
     {
         global $pagenow, $current_user;
 
+        if ($this->doing_unfiltered_shortcode) {
+			return $clauses;
+		}
+
+        // Gallery block in Gutenberg editor: error loading Image Size dropdown options
+        if (defined('REST_REQUEST') && (0 == strpos(PWP::SERVER_url('REQUEST_URI'), "/blocks")) && !PWP::empty_REQUEST('context') && ('edit' == PWP::REQUEST_key('context'))) {
+            return $clauses;
+        }
+
         $pp = presspermit();
 
+        if (defined('PUBLISHPRESS_VERSION') && did_action('publishpress_notifications_trigger_workflows')) {
+			return $clauses;
+		}
+
         $args['query_obj'] = $_wp_query;
+
+        if (!empty($args['pp_unfiltered']) && !defined('PRESSPERMIT_FORCE_POST_FILTERING')) {
+            return $clauses;
+        }
 
         if ($pp->isUserUnfiltered($current_user->ID, $args) && 
             (
             !is_admin() || 
-            (($pagenow != 'nav-menus.php') && (!defined('DOING_AJAX') || !DOING_AJAX || !presspermit_is_REQUEST('action', ['menu-get-metabox', 'menu-quick-search'])))
+            (($pagenow != 'nav-menus.php') && (!defined('DOING_AJAX') || !DOING_AJAX || !PWP::is_REQUEST('action', ['menu-get-metabox', 'menu-quick-search'])))
             )
         ) { // need to make private items selectable for nav menus
             return $clauses;
         }
 
-        $action = presspermit_REQUEST_key('action');
+        $action = PWP::REQUEST_key('action');
 
         if (
             defined('PP_MEDIA_LIB_UNFILTERED') && (('upload.php' == $pagenow)
@@ -186,7 +225,7 @@ class PostFilters
         }
 
         if (defined('DOING_AJAX') && DOING_AJAX) { // todo: separate function to eliminate redundancy with Find::findPostType()
-            if (in_array($action, (array)apply_filters('presspermit_unfiltered_ajax', ['woocommerce_load_variations', 'woocommerce_add_variation', 'woocommerce_remove_variations', 'woocommerce_save_variations']), true)) {
+            if (in_array($action, (array)apply_filters('presspermit_unfiltered_ajax', ['woocommerce_load_variations', 'woocommerce_add_variation', 'woocommerce_remove_variations', 'woocommerce_save_variations', 'us_ajax_grid']), true)) {
                 return $clauses;
             }
 
@@ -205,7 +244,7 @@ class PostFilters
             );
 
             foreach (array_keys($ajax_post_types) as $arg) {
-                if (!presspermit_empty_REQUEST($arg) || ($arg == $action)) {
+                if (!PWP::empty_REQUEST($arg) || ($arg == $action)) {
                     $_wp_query->post_type = $ajax_post_types[$arg];
                     break;
                 }
@@ -317,13 +356,13 @@ class PostFilters
         $post_types = ($post_types) ? (array)$post_types : presspermit()->getEnabledPostTypes();
 
         if (!$required_operation) {
-            if (!presspermit_empty_REQUEST('preview')) {
+            if (!PWP::empty_REQUEST('preview')) {
                 $required_opertion = 'edit';
             } else {
                 if (!$required_operation = apply_filters('presspermit_get_posts_operation', '', $args)) {
                     if (defined('REST_REQUEST') && REST_REQUEST) {
-                        if (presspermit_is_REQUEST('context', 'edit')) {
-                            $required_operation = (!presspermit_empty_REQUEST('parent_exclude')) ? 'associate' : 'edit'; // todo: better criteria
+                        if (PWP::is_REQUEST('context', 'edit')) {
+                            $required_operation = (!PWP::empty_REQUEST('parent_exclude')) ? 'associate' : 'edit'; // todo: better criteria
                         } else {
                             $required_operation = 'read';
                         }
@@ -390,7 +429,7 @@ class PostFilters
         // (But not if user is anon and hidden content teaser is enabled.  In that case, we need to replace the default "status=publish" clause)
         $matches = [];
         if ($num_matches = preg_match_all("/{$src_table}.post_status\s*=\s*'([^']+)'/", $where, $matches)) {
-            if (PWP::isFront() || (defined('REST_REQUEST') && REST_REQUEST) || (defined('DOING_AJAX') && DOING_AJAX && presspermit_is_REQUEST('action', ['menu-get-metabox', 'menu-quick-search']))) {
+            if (PWP::isFront() || (defined('REST_REQUEST') && REST_REQUEST) || (defined('DOING_AJAX') && DOING_AJAX && PWP::is_REQUEST('action', ['menu-get-metabox', 'menu-quick-search']))) {
                 if (PWP::isFront() || 'read' == $required_operation) {
                     $valid_stati = array_merge(
                         PWP::getPostStatuses(['public' => true, 'post_type' => $post_types]),
@@ -401,7 +440,7 @@ class PostFilters
                         $valid_stati['future'] = 'future';
                     }
                 } else {
-                    $valid_stati = PWP::getPostStatuses(['internal' => false, 'post_type' => $post_types], 'names', '', ['context' => 'edit']);
+                    $valid_stati = PWP::getPostStatuses(['internal' => false, 'post_type' => $post_types], 'names', 'and', ['context' => 'edit']);
                 }
 
                 global $wp_query;
@@ -421,7 +460,7 @@ class PostFilters
         if (1 == $num_matches) {
             // Eliminate a primary plugin incompatibility by skipping this preservation of existing single status requirements if we're on the front end and the requirement is 'publish'.  
             // (i.e. include private posts that this user has access to via PP roles or exceptions).  
-            if ((!PWP::isFront() && (!defined('REST_REQUEST') || !REST_REQUEST) && (!defined('DOING_AJAX') || !DOING_AJAX || !presspermit_is_REQUEST('action', ['menu-get-metabox', 'menu-quick-search'])))
+            if ((!PWP::isFront() && (!defined('REST_REQUEST') || !REST_REQUEST) && (!defined('DOING_AJAX') || !DOING_AJAX || !PWP::is_REQUEST('action', ['menu-get-metabox', 'menu-quick-search'])))
                 || ('publish' != $matches[1][0]) || $retain_status || defined('PP_RETAIN_PUBLISH_FILTER')
             ) {
                 $limit_statuses = [];
@@ -567,8 +606,8 @@ class PostFilters
 
         if (!$required_operation) {
             if (defined('REST_REQUEST') && REST_REQUEST) {
-                if (presspermit_is_REQUEST('context', 'edit')) {
-                    $required_operation = (!presspermit_empty_REQUEST('parent_exclude')) ? 'associate' : 'edit'; // todo: better criteria
+                if (PWP::is_REQUEST('context', 'edit')) {
+                    $required_operation = (!PWP::empty_REQUEST('parent_exclude')) ? 'associate' : 'edit'; // todo: better criteria
                 } else {
                     $required_operation = (presspermit_is_preview()) ? 'edit' : 'read';
                 }
@@ -654,18 +693,23 @@ class PostFilters
         }
 
         if (!is_bool($include_trash)) {
-            if (presspermit_is_REQUEST('post_status', 'trash')) {
+            if (PWP::is_REQUEST('post_status', 'trash')) {
                 $include_trash = true;
             }
         }
 
         $where_arr = [];
 
-        $caps = class_exists('\PublishPress\Permissions\Statuses\CapabilityFilters') ? \PublishPress\Permissions\Statuses\CapabilityFilters::instance() : false;
+        $caps = class_exists('\PublishPress\StatusCapabilities\CapabilityFilters') ? \PublishPress\StatusCapabilities\CapabilityFilters::instance() : false;
+
+		// legacy support
+		if (!$caps) {
+			$caps = class_exists('\PublishPress\Permissions\Statuses\CapabilityFilters') ? \PublishPress\Permissions\Statuses\CapabilityFilters::instance() : false;
+		}
 
         $flag_meta_caps = !empty($caps);
 
-        if ('read' == $required_operation && !defined('PP_DISABLE_UNFILTERED_TYPES_CLAUSE') && !$user->ID) {
+        if ('read' == $required_operation && !defined('PP_DISABLE_UNFILTERED_TYPES_CLAUSE')) {
             $all_post_types = get_post_types(['public' => true, 'show_ui' => true], 'names', 'or');
 
             $unfiltered_post_types = array_diff($all_post_types, $post_types);
@@ -717,7 +761,7 @@ class PostFilters
                     if ($reqd_caps) {  // note: this function is called only for listing query filters (not for user_has_cap filter)
                         if ($missing_caps = apply_filters(
                             'presspermit_query_missing_caps',
-                            array_diff($reqd_caps, array_keys($user->allcaps)),
+                            array_diff($reqd_caps, array_keys(array_filter($user->allcaps))),
                             $reqd_caps,
                             $post_type,
                             $meta_cap
@@ -743,7 +787,7 @@ class PostFilters
                                     }
                                 }
 
-                                if (!array_diff($reqd_caps, array_keys($user->allcaps))) {
+                                if (!array_diff($reqd_caps, array_keys(array_filter($user->allcaps)))) {
                                     $have_site_caps['user'][] = $status;
                                 }
                             }
@@ -752,7 +796,7 @@ class PostFilters
                             $owner_reqd_caps = self::getBaseCaps($reqd_caps, $post_type);
 
                             if (($owner_reqd_caps != $reqd_caps) && $user->ID) {
-                                if (!array_diff($owner_reqd_caps, array_keys($user->allcaps))) {
+                                if (!array_diff($owner_reqd_caps, array_keys(array_filter($user->allcaps)))) {
                                     $have_site_caps['owner'][] = $status;
                                 }
                             }
@@ -871,6 +915,22 @@ class PostFilters
 
         if ($pp_where) {
             $pp_where = " AND ( $pp_where )";
+        }
+
+        if ($extra_exception_operations = apply_filters('presspermit_posts_where_extra_exception_ops', [], $args)) {
+            foreach ($extra_exception_operations as $_op) {
+                if ($required_operation != $_op) {
+                    $_where_arr = [];
+
+                    foreach ($post_types as $post_type) {
+                        $_where_arr[$post_type] = DB\Permissions::addExceptionClauses('', $_op, $post_type, $args);
+                    }
+
+                    if ($_where = Arr::implode('OR', $_where_arr)) {
+                        $pp_where = $pp_where . " AND ($_where)";
+                    }
+                }
+            }
         }
 
         return $pp_where;

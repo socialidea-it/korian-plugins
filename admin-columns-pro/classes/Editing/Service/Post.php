@@ -2,8 +2,7 @@
 
 namespace ACP\Editing\Service;
 
-use AC\Request;
-use ACP;
+use AC\Helper\Select\Options\Paginated;
 use ACP\Editing;
 use ACP\Editing\PaginatedOptions;
 use ACP\Editing\Storage;
@@ -32,27 +31,43 @@ class Post implements Editing\Service, PaginatedOptions {
 		$this->options_factory = $options_factory ?: new PaginatedOptions\Posts();
 	}
 
-	public function get_view( $context ) {
+	public function get_view( string $context ): ?View {
 		return $this->view->set_multiple( false );
 	}
 
-	public function get_value( $id ) {
+	private function get_stored_post_id( int $id ) {
 		$post_id = $this->storage->get( $id );
 
-		if ( is_array( $post_id ) && ! empty( $post_id ) ) {
-			$post_id = $post_id[0];
+		if ( is_array( $post_id ) ) {
+			$post_id = reset( $post_id );
 		}
 
-		return $post_id && is_scalar( $post_id )
-			? [ $post_id => get_the_title( $post_id ) ]
-			: false;
+		return $this->sanitize_post_id( $post_id );
 	}
 
-	public function update( Request $request ) {
-		$this->storage->update( (int) $request->get( 'id' ), $request->get( 'value' ) );
+	public function get_value( int $id ) {
+		$post_id = $this->get_stored_post_id( $id );
+
+		if ( ! $post_id || ! get_post( $post_id ) ) {
+			return false;
+		}
+
+		return [
+			$post_id => get_the_title( $post_id ) ?: sprintf( __( '#%d (no title)' ), $post_id ),
+		];
 	}
 
-	public function get_paginated_options( $search, $page, $id = null ) {
+	private function sanitize_post_id( $post_id ): ?int {
+		return $post_id && is_numeric( $post_id )
+			? (int) $post_id
+			: null;
+	}
+
+	public function update( int $id, $data ): void {
+		$this->storage->update( $id, $this->sanitize_post_id( $data ) );
+	}
+
+	public function get_paginated_options( string $search, int $page, int $id = null ): Paginated {
 		return $this->options_factory->create( $search, $page, $id );
 	}
 

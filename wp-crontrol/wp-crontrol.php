@@ -1,14 +1,16 @@
 <?php
 /**
  * Plugin Name:  WP Crontrol
- * Plugin URI:   https://wordpress.org/plugins/wp-crontrol/
- * Description:  WP Crontrol enables you to view and control what's happening in the WP-Cron system.
- * Author:       John Blackbourn & crontributors
- * Author URI:   https://github.com/johnbillion/wp-crontrol/graphs/contributors
- * Version:      1.15.1
+ * Plugin URI:   https://wp-crontrol.com
+ * Description:  Take control of the cron events on your WordPress website.
+ * Author:       John Blackbourn
+ * Author URI:   https://wp-crontrol.com
+ * Version:      1.16.3
  * Text Domain:  wp-crontrol
  * Domain Path:  /languages/
- * Requires PHP: 5.6
+ * Requires at least: 5.6
+ * Requires PHP: 7.4
+ * License URI:  https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  * License:      GPL v2 or later
  *
  * LICENSE
@@ -25,31 +27,30 @@
  * GNU General Public License for more details.
  *
  * @package    wp-crontrol
- * @author     John Blackbourn <john@johnblackbourn.com> & Edward Dale <scompt@scompt.com>
- * @copyright  Copyright 2008 Edward Dale, 2012-2022 John Blackbourn
+ * @author     John Blackbourn & Edward Dale
+ * @copyright  Copyright 2008 Edward Dale, 2012-2024 John Blackbourn
  * @license    https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt GPL 2.0
- * @link       https://wordpress.org/plugins/wp-crontrol/
+ * @link       https://github.com/johnbillion/wp-crontrol/
  */
 
 namespace Crontrol;
 
 const PLUGIN_FILE = __FILE__;
+const WP_CRONTROL_VERSION = '1.16.3';
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-if ( ! version_compare( PHP_VERSION, '5.6', '>=' ) ) {
+if ( ! version_compare( PHP_VERSION, '7.4', '>=' ) ) {
 	return;
 }
 
-$autoload = __DIR__ . '/vendor/autoload.php';
-
-if ( ! file_exists( $autoload ) ) {
+if ( ! file_exists( __DIR__ . '/vendor/autoload.php' ) ) {
 	return;
 }
 
-require_once $autoload;
+require_once __DIR__ . '/vendor/autoload.php';
 require_once __DIR__ . '/src/bootstrap.php';
 require_once __DIR__ . '/src/event.php';
 require_once __DIR__ . '/src/schedule.php';

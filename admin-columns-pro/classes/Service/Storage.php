@@ -1,148 +1,157 @@
 <?php
 
+declare(strict_types=1);
+
 namespace ACP\Service;
 
 use AC;
 use AC\ListScreenRepository\Storage\ListScreenRepository;
-use AC\Registrable;
-use ACP\ListScreenRepository\Collection;
+use AC\ListScreenRepositoryWritable;
+use AC\Registerable;
+use ACP\ListScreenRepository\Callback;
+use ACP\ListScreenRepository\Database;
 use ACP\ListScreenRepository\FileFactory;
+use ACP\ListScreenRepository\Template;
+use ACP\ListScreenRepository\Types;
+use ACP\Migrate\Preference\PreviewMode;
+use ACP\Storage\AbstractDecoderFactory;
 use ACP\Storage\Directory;
-use ACP\Storage\ListScreen\LegacyCollectionDecoder;
-use ACP\Storage\ListScreen\SerializerTypes;
-use ACP\Storage\ListScreenRepositoryFactory;
 
-final class Storage implements Registrable {
+final class Storage implements Registerable
+{
 
-	/**
-	 * @var AC\ListScreenRepository\Storage
-	 */
-	private $storage;
+    private $storage;
 
-	/**
-	 * @var FileFactory
-	 */
-	private $file_factory;
+    private $database_list_screen_repository;
 
-	/**
-	 * @var AC\EncodedListScreenDataFactory
-	 */
-	private $encoded_list_screen_data_factory;
+    private $decoder_factory;
 
-	/**
-	 * @var LegacyCollectionDecoder
-	 */
-	private $collection_decoder;
+    private $file_factory;
 
-	public function __construct(
-		AC\ListScreenRepository\Storage $storage,
-		FileFactory $file_factory,
-		AC\EncodedListScreenDataFactory $encoded_list_screen_data_factory,
-		LegacyCollectionDecoder $collection_decoder
-	) {
-		$this->storage = $storage;
-		$this->file_factory = $file_factory;
-		$this->encoded_list_screen_data_factory = $encoded_list_screen_data_factory;
-		$this->collection_decoder = $collection_decoder;
-	}
+    private $template_repository;
 
-	public function register() {
-		add_action( 'ac/list_screens', [ $this, 'configure' ], 20 );
-	}
+    private $preview_mode;
 
-	public function configure() {
-		$repositories = $this->storage->get_repositories();
+    public function __construct(
+        AC\ListScreenRepository\Storage $storage,
+        Database $database_list_screen_repository,
+        AbstractDecoderFactory $decoder_factory,
+        FileFactory $file_factory,
+        Template $template_repository,
+        PreviewMode $preview_mode
+    ) {
+        $this->storage = $storage;
+        $this->database_list_screen_repository = $database_list_screen_repository;
+        $this->decoder_factory = $decoder_factory;
+        $this->file_factory = $file_factory;
+        $this->template_repository = $template_repository;
+        $this->preview_mode = $preview_mode;
+    }
 
-		$this->configure_file_storage( $repositories );
+    public function register(): void
+    {
+        add_action('acp/ready', [$this, 'configure'], 20);
 
-		$repositories = apply_filters( 'acp/storage/repositories',
-			$repositories,
-			new ListScreenRepositoryFactory( $this->file_factory )
-		);
+        // Migrate can only run after post types have been initialised
+        add_action('init', [$this, 'migrate'], 300);
+    }
 
-		$this->configure_api_storage( $repositories );
+    public function configure(): void
+    {
+        $repositories = $this->storage->get_repositories();
 
-		$this->storage->set_repositories( $repositories );
-	}
+        // Use the ACP version instead of the AC version
+        $repositories[AC\ListScreenRepository\Types::DATABASE] = new ListScreenRepository(
+            $this->database_list_screen_repository, true
+        );
 
-	private function configure_api_storage( array &$repositories ) {
-		$collection = new AC\ListScreenCollection();
+        $this->configure_file_storage($repositories);
 
-		foreach ( $this->encoded_list_screen_data_factory->create() as $data ) {
-			if ( ! $this->collection_decoder->can_decode( $data ) ) {
-				continue;
-			}
+        $repositories = apply_filters(
+            'acp/storage/repositories',
+            $repositories,
+            $this->file_factory
+        );
 
-			foreach ( $this->collection_decoder->decode( $data ) as $list_screen ) {
-				$collection->add( $list_screen );
-			}
-		}
+        $callbacks = apply_filters('acp/storage/repositories/callback', []);
 
-		if ( ! $collection->count() ) {
-			return;
-		}
+        foreach ($callbacks as $key => $callback) {
+            $repositories['ac-callback-' . $key] = new ListScreenRepository(
+                new Callback($this->decoder_factory, $callback),
+                false
+            );
+        }
 
-		$repositories['acp-collection'] = new ListScreenRepository(
-			new Collection( $collection ),
-			false
-		);
-	}
+        if ($this->preview_mode->is_active()) {
+            $repositories[Types::TEMPLATE] = new ListScreenRepository($this->template_repository);
+        }
 
-	private function configure_file_storage( array &$repositories ) {
-		if ( apply_filters( 'acp/storage/file/enable_for_multisite', false ) && is_multisite() ) {
-			return;
-		}
+        $this->storage->set_repositories($repositories);
+    }
 
-		$path = apply_filters( 'acp/storage/file/directory', null );
+    private function configure_file_storage(array &$repositories): void
+    {
+        if (apply_filters('acp/storage/file/enable_for_multisite', false) && is_multisite()) {
+            return;
+        }
 
-		if ( ! is_string( $path ) || $path === '' ) {
-			return;
-		}
+        $path = apply_filters('acp/storage/file/directory', null);
 
-		$directory = new Directory( $path );
+        if ( ! is_string($path) || $path === '') {
+            return;
+        }
 
-		if ( ! $directory->exists() && $directory->has_path( WP_CONTENT_DIR ) ) {
-			$directory->create();
-		}
+        $directory = new Directory($path);
 
-		$file = new ListScreenRepository(
-			$this->file_factory->create(
-				SerializerTypes::PHP,
-				$directory
-			),
-			apply_filters( 'acp/storage/file/directory/writable', true )
-		);
+        if ( ! $directory->exists() || str_contains($path, WP_CONTENT_DIR)) {
+            $directory->create();
+        }
 
-		$repositories['acp-file'] = $file;
+        $file = $this->file_factory->create(
+            $path,
+            (bool)apply_filters('acp/storage/file/directory/writable', true),
+            null,
+            (string)apply_filters('acp/storage/file/directory/i18n_text_domain', null)
+        );
 
-		if ( ! $file->is_writable() || ! $this->storage->has_repository( 'acp-database' ) ) {
-			return;
-		}
+        $repositories[Types::FILE] = $file;
 
-		$database = $this->storage->get_repository( 'acp-database' );
+        if ( ! $file->is_writable() || ! $this->storage->has_repository(Types::DATABASE)) {
+            return;
+        }
 
-		if ( apply_filters( 'acp/storage/file/directory/migrate', false ) ) {
-			$this->run_migration( $database, $file );
-		}
+        $repositories[Types::DATABASE] = $repositories[Types::DATABASE]->with_writable(false);
+    }
 
-		if ( apply_filters( 'acp/storage/file/directory/copy', false ) ) {
-			$this->run_copy( $database, $file );
-		}
+    public function migrate(): void
+    {
+        $do_migrate = apply_filters('acp/storage/file/directory/migrate', false);
 
-		$repositories['acp-database'] = $database->with_writable( false );
-	}
+        if ( ! $do_migrate) {
+            return;
+        }
 
-	private function run_migration( ListScreenRepository $from, ListScreenRepository $to ) {
-		foreach ( $from->with_writable( true )->find_all() as $list_screen ) {
-			$to->save( $list_screen );
-			$from->delete( $list_screen );
-		}
-	}
+        if ( ! $this->storage->has_repository(Types::FILE) || ! $this->storage->has_repository(Types::DATABASE)) {
+            return;
+        }
 
-	private function run_copy( ListScreenRepository $from, ListScreenRepository $to ) {
-		foreach ( $from->find_all() as $list_screen ) {
-			$to->save( $list_screen );
-		}
-	}
+        $file = $this->storage
+            ->get_repository(Types::FILE)
+            ->get_list_screen_repository();
+
+        $database = $this->storage
+            ->get_repository(Types::DATABASE)
+            ->with_writable(true)
+            ->get_list_screen_repository();
+
+        if ( ! $database instanceof ListScreenRepositoryWritable || ! $file instanceof ListScreenRepositoryWritable) {
+            return;
+        }
+
+        foreach ($database->find_all() as $list_screen) {
+            $file->save($list_screen);
+            $database->delete($list_screen);
+        }
+    }
 
 }

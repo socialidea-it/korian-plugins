@@ -1,117 +1,106 @@
 <?php
 
+declare(strict_types=1);
+
 namespace ACP\Sorting\Model\Comment;
 
-use ACP\Sorting\AbstractModel;
+use ACP\Query\Bindings;
 use ACP\Sorting\FormatValue;
+use ACP\Sorting\Model\QueryBindings;
+use ACP\Sorting\Model\SqlOrderByFactory;
 use ACP\Sorting\Sorter;
-use ACP\Sorting\Strategy;
 use ACP\Sorting\Type\DataType;
+use ACP\Sorting\Type\Order;
 
-/**
- * @property Strategy\Comment $strategy
- * @since 5.2
- */
-class FieldFormat extends AbstractModel {
+class FieldFormat implements QueryBindings
+{
 
-	/**
-	 * @param string $field
-	 */
-	protected $field;
+    protected $field;
 
-	/**
-	 * @var FormatValue
-	 */
-	protected $formatter;
+    protected $formatter;
 
-	/**
-	 * Save memory by limiting the value lenght of the field
-	 * @var int
-	 */
-	protected $value_length;
+    protected $value_length;
 
-	public function __construct( $field, FormatValue $formatter, DataType $data_type = null, $value_length = null ) {
-		parent::__construct( $data_type );
+    protected $data_type;
 
-		$this->field = (string) $field;
-		$this->formatter = $formatter;
-		$this->value_length = (int) $value_length;
-	}
+    public function __construct(
+        string $field,
+        FormatValue $formatter,
+        DataType $data_type = null,
+        int $value_length = null
+    ) {
+        $this->field = $field;
+        $this->formatter = $formatter;
+        $this->value_length = $value_length;
+        $this->data_type = $data_type;
+    }
 
-	/**
-	 * @return array
-	 */
-	public function get_sorting_vars() {
-		return [
-			'ids' => $this->get_sorted_ids(),
-		];
-	}
+    public function create_query_bindings(Order $order): Bindings
+    {
+        global $wpdb;
 
-	/**
-	 * @param string $var
-	 *
-	 * @return string|null
-	 */
-	private function get_query_var( $var ) {
-		$query = $this->strategy->get_query();
+        return (new Bindings())->order_by(
+            SqlOrderByFactory::create_with_ids(
+                "$wpdb->comments.comment_ID",
+                $this->get_sorted_ids(),
+                (string)$order
+            )
+        );
+    }
 
-		if ( ! $query || ! isset( $query->query_vars[ $var ] ) ) {
-			return null;
-		}
+    private function get_comment_status(): string
+    {
+        global $comment_status;
 
-		return $query->query_vars[ $var ];
-	}
+        switch ($comment_status) {
+            case 'moderated' :
+                return '0';
+            case 'spam' :
+                return 'spam';
+            case 'trash' :
+                return 'trash';
+            case 'approved' :
+                return '1';
+            default:
+                return '';
+        }
+    }
 
-	private function get_comment_status() {
+    private function get_sorted_ids(): array
+    {
+        global $wpdb;
 
-		switch ( $this->get_query_var( 'status' ) ) {
-			case 'hold' :
-				return 0;
-			case 'spam' :
-				return 'spam';
-			case 'trash' :
-				return 'trash';
-			case 'approve' :
-				return 1;
-		}
+        $field = $this->value_length
+            ? sprintf("LEFT( cc.%s, %s )", esc_sql($this->field), $this->value_length)
+            : sprintf("cc.%s", esc_sql($this->field));
 
-		return null;
-	}
-
-	/**
-	 * @return array
-	 */
-	private function get_sorted_ids() {
-		global $wpdb;
-
-		$field = $this->value_length
-			? sprintf( "LEFT( cc.%s, %s )", esc_sql( $this->field ), $this->value_length )
-			: sprintf( "cc.%s", esc_sql( $this->field ) );
-
-		$sql = sprintf( "
+        $sql = sprintf(
+            "
 			SELECT cc.comment_ID AS id, %s AS value 
-			FROM {$wpdb->comments} AS cc
-		", $field );
+			FROM $wpdb->comments AS cc
+		",
+            $field
+        );
 
-		$status = $this->get_comment_status();
+        $status = $this->get_comment_status();
 
-		if ( $status ) {
-			$sql .= $wpdb->prepare( " WHERE cc.comment_approved = %s", $status );
-		}
+        if ($status) {
+            $sql .= $wpdb->prepare(" WHERE cc.comment_approved = %s", $status);
+        }
 
-		$results = $wpdb->get_results( $sql );
+        $results = $wpdb->get_results($sql);
 
-		if ( ! $results ) {
-			return [];
-		}
+        if ( ! $results) {
+            return [];
+        }
 
-		$values = [];
+        $values = [];
 
-		foreach ( $results as $object ) {
-			$values[ $object->id ] = $this->formatter->format_value( $object->value );
-		}
+        foreach ($results as $object) {
+            $values[$object->id] = $this->formatter->format_value($object->value);
+        }
 
-		return ( new Sorter() )->sort( $values, $this->get_order(), $this->data_type, $this->show_empty );
-	}
+        return (new Sorter())->sort($values, $this->data_type);
+    }
 
 }

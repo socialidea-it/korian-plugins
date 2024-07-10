@@ -5,74 +5,135 @@ namespace ACP\Search\Asset\Script;
 use AC\Asset\Location;
 use AC\Asset\Script;
 use AC\Capabilities;
+use AC\Helper\Select\Option;
+use AC\ListScreen;
 use AC\Request;
-use ACP\Bookmark\Entity\Segment;
+use ACP\Search\Comparison\RemoteValues;
+use ACP\Search\Comparison\SearchableValues;
+use ACP\Search\Comparison\Values;
+use ACP\Search\ComparisonFactory;
+use ACP\Search\Settings\HideOnScreen;
+use ACP\Search\Type\SegmentKey;
 
-final class Table extends Script {
+final class Table extends Script
+{
 
-	/**
-	 * @var array
-	 */
-	protected $filters;
+    protected $filters;
 
-	/**
-	 * @var Request
-	 */
-	protected $request;
+    protected $request;
 
-	/**
-	 * @var Segment|null
-	 */
-	protected $segment;
+    protected $list_screen;
 
-	public function __construct( $handle, Location $location, array $filters, Request $request, Segment $segment = null ) {
-		parent::__construct( $handle, $location, [ 'aca-search-querybuilder', 'wp-pointer' ] );
+    protected $segment_key;
 
-		$this->filters = $filters;
-		$this->request = $request;
-		$this->segment = $segment;
-	}
+    public function __construct(
+        string $handle,
+        Location $location,
+        array $filters,
+        Request $request,
+        ListScreen $list_screen,
+        SegmentKey $segment_key = null
+    ) {
+        parent::__construct($handle, $location, ['wp-pointer']);
 
-	/**
-	 * @return int|null
-	 */
-	private function get_current_segment() {
-		$segment_id = $this->request->get( 'ac-segment' );
+        $this->filters = $filters;
+        $this->request = $request;
+        $this->list_screen = $list_screen;
+        $this->segment_key = $segment_key;
+    }
 
-		if ( ! $segment_id && $this->segment ) {
-			$segment_id = $this->segment->get_id()->get_id();
-		}
+    private function get_current_segment(): ?SegmentKey
+    {
+        $segment_key = $this->segment_key;
+        $request_segment_key = $this->request->get('ac-segment');
 
-		return $segment_id
-			? (int) $segment_id
-			: null;
-	}
+        if ($request_segment_key) {
+            $segment_key = new SegmentKey($request_segment_key);
+        }
 
-	public function register() {
-		parent::register();
+        return $segment_key;
+    }
 
-		$rules = $this->request->get( 'ac-rules-raw' );
+    private function get_rules(): ?array
+    {
+        $rules_raw = $this->request->get('ac-rules-raw');
 
-		wp_localize_script( 'aca-search-table', 'ac_search', [
-			'current_segment' => $this->get_current_segment(),
-			'rules'           => $rules ? json_decode( $rules ) : null,
-			'filters'         => $this->filters,
-			'sorting'         => [
-				'orderby' => isset( $_GET['orderby'] ) ? $_GET['orderby'] : null,
-				'order'   => isset( $_GET['order'] ) ? $_GET['order'] : null,
-			],
-			'i18n'            => [
-				'select'         => _x( 'Select', 'select placeholder', 'codepress-admin-columns' ),
-				'add_filter'     => __( 'Add Filter', 'codepress-admin-columns' ),
-				'days_ago'       => __( 'days ago', 'codepress-admin-columns' ),
-				'days'           => __( 'days', 'codepress-admin-columns' ),
-				'shared_segment' => __( 'Available to all users', 'codepress-admin-columns' ),
-				'clear_filters'  => __( 'Clear filters', 'codepress-admin-columns' ),
-			],
-			'capabilities'    => [
-				'user_can_manage_shared_segments' => current_user_can( Capabilities::MANAGE ),
-			],
-		] );
-	}
+        if ( ! $rules_raw) {
+            return null;
+        }
+
+        $rules = json_decode($rules_raw, true);
+
+        foreach ($rules['rules'] as $key => $rule) {
+            $column = $this->list_screen->get_column_by_name($rule['id']);
+
+            if ( ! $column) {
+                continue;
+            }
+
+            $comparison = (new ComparisonFactory())->create($column);
+
+            if ( ! $comparison) {
+                continue;
+            }
+
+            if (
+                ($comparison instanceof RemoteValues || $comparison instanceof SearchableValues)
+                && $rule['value'] && ! is_array($rule['value'])) {
+                $rules['rules'][$key]['formatted_value'] = $comparison->format_label($rule['value']);
+            }
+
+            if ($comparison instanceof Values) {
+                /** @var Option $option */
+                foreach ($comparison->get_values()->get_copy() as $option) {
+                    if ((string)$option->get_value() === $rule['value']) {
+                        $rules['rules'][$key]['formatted_value'] = $option->get_label();
+                        break;
+                    }
+                }
+            }
+        }
+
+        return $rules;
+    }
+
+    public function register(): void
+    {
+        parent::register();
+
+        wp_localize_script('aca-search-table', 'acp_search', [
+            'current_segment' => (string)$this->get_current_segment(),
+            'rules'           => $this->get_rules(),
+            'filters'         => $this->filters,
+            'sorting'         => [
+                'orderby' => $_GET['orderby'] ?? null,
+                'order'   => $_GET['order'] ?? null,
+            ],
+            'segments'        => [
+                'enabled'    => ! (new HideOnScreen\SavedFilters())->is_hidden($this->list_screen),
+                'can_manage' => current_user_can(Capabilities::MANAGE),
+            ],
+        ]);
+
+        wp_localize_script('aca-search-table', 'acp_search_i18n', [
+            'select'              => _x('Select', 'select placeholder', 'codepress-admin-columns'),
+            'add_filter'          => __('Add Filter', 'codepress-admin-columns'),
+            'days_ago'            => __('days ago', 'codepress-admin-columns'),
+            'days'                => __('days', 'codepress-admin-columns'),
+            'shared_segment'      => __('Available to all users', 'codepress-admin-columns'),
+            'more_search_records' => __('Please enter more characters to narrow down the search results'),
+            'no_search_results'   => __('No options found', 'codepress-admin-columns'),
+            'clear_filters'       => __('Clear filters', 'codepress-admin-columns'),
+            'segments'            => [
+                'search_segments' => __('Type to search', 'codepress-admin-columns'),
+                'save_filters'    => __('Save Filters', 'codepress-admin-columns'),
+                'public_filters'  => __('Public', 'codepress-admin-columns'),
+                'name'            => __('Name', 'codepress-admin-columns'),
+                'cancel'          => __('Cancel', 'codepress-admin-columns'),
+                'save'            => __('Save', 'codepress-admin-columns'),
+                'instructions'    => __('Instructions', 'codepress-admin-columns'),
+            ],
+        ]);
+    }
 
 }

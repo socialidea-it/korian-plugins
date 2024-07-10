@@ -125,6 +125,8 @@ class TermFiltersCount
     {
         global $pagenow;
 
+        // phpcs Note: The exclude and meta_value args supported here are for WP API compat, passing on any such arguments supplied by the get_terms() or get_pages() function
+
         $defaults = [
             'fields' => '',
             'hierarchical' => false,
@@ -134,7 +136,7 @@ class TermFiltersCount
             'number' => 0,
             'offset' => 0,
             'include' => false,
-            'exclude' => false,
+            'exclude' => false,  // phpcs:ignore WordPressVIPMinimum.Performance.WPQueryParams.PostNotIn_exclude
             'actual_args' => [],
 
             'pad_counts' => false,
@@ -206,7 +208,7 @@ class TermFiltersCount
         }
 
         // Replace DB-stored term counts with actual number of posts this user can read.
-        // In addition, without the pp_tallyTermCounts() call, WP will hide terms that have no public posts (even if this user can read some of the pvt posts).
+        // In addition, without the TermQuery::tallyTermCounts() call, WP will hide terms that have no public posts (even if this user can read some of the pvt posts).
         // Post counts will be incremented to include child terms only if $pad_counts is true
         if (!defined('XMLRPC_REQUEST') && (1 == count($taxonomies))) {
             if ((!is_admin() || !in_array($pagenow, ['post.php', 'post-new.php']))
@@ -220,13 +222,17 @@ class TermFiltersCount
 
                     foreach (array_keys($terms) as $k) {
                         foreach (array_keys($all_terms) as $key) {
-                            if ($all_terms[$key]->term_taxonomy_id == $terms[$k]->term_taxonomy_id) {
-                                $terms[$k]->count = $all_terms[$key]->count;
-                                break;
+                            if (is_object($all_terms[$key]) && is_object($terms[$k])) {
+                            	if ($all_terms[$key]->term_taxonomy_id == $terms[$k]->term_taxonomy_id) {
+                                	$terms[$k]->count = $all_terms[$key]->count;
+                                	break;
+                                }
                             }
                         }
                     }
-                } else {
+
+                // Perf: If empty terms are not being hidden and show_count is set false, there is no need to filter the term counts.
+                } elseif (!isset($args['actual_args']['show_count']) || !empty($args['actual_args']['show_count'])) {
                     TermQuery::tallyTermCounts($terms, reset($taxonomies), compact('pad_counts', 'skip_teaser', 'post_type'));
                 }
             }
@@ -257,7 +263,7 @@ class TermFiltersCount
                 }
             } else {
                 foreach ($terms as $key => $term) {
-                    if (!$term->count) {
+                    if (is_object($term) && isset($term->count) && !$term->count) {
                         unset($terms[$key]);
                     }
                 }
@@ -282,7 +288,8 @@ class TermFiltersCount
         // === Standard WP post-processing for include, fields, number args ===
         //
         $_terms = [];
-        if ('id=>parent' == $fields) {
+
+        if (('id=>parent' == $fields) && apply_filters('presspermit_get_terms_filter_id_parent', true, $terms, $taxonomies, $args)) {
 			foreach ( $terms as $term ) {
                 if (is_object($term)) {
                 	$_terms[$term->term_id] = $term->parent;

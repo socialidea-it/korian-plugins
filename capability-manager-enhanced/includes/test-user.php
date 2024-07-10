@@ -12,8 +12,11 @@ class PP_Capabilities_Test_User
      */
     const AUTH_COOKIE_HOUR_IN_SECONDS = HOUR_IN_SECONDS;
 
+    private static $cookie_name;
+
     public function __construct()
     {
+        self::$cookie_name = defined('PPC_TEST_USER_COOKIE_NAME') ? PPC_TEST_USER_COOKIE_NAME : 'ppc_test_user_tester_' . COOKIEHASH;
         //clear test user cookie on logout and login
         add_action('wp_logout', [$this, 'clearTestUserCookie']);
         add_action('wp_login', [$this, 'clearTestUserCookie']);
@@ -47,7 +50,7 @@ class PP_Capabilities_Test_User
         }
 
         if (!wp_verify_nonce(sanitize_key($_GET['_wpnonce']), 'ppc-test-user')) {
-            wp_die(esc_html__('Your link has expired, refresh the page and try again.', 'capsman-enhanced'));
+            wp_die(esc_html__('Your link has expired, refresh the page and try again.', 'capability-manager-enhanced'));
         }
 
         $request_user_id = isset($_GET['ppc_test_user']) ? (int) base64_decode(sanitize_text_field($_GET['ppc_test_user'])) : 0;
@@ -55,11 +58,18 @@ class PP_Capabilities_Test_User
         $request_user    = get_userdata($request_user_id);
         
         if (!$request_user || (is_object($request_user) && !isset($request_user->ID))) {
-            wp_die(esc_html__('Unable to retrieve user data.', 'capsman-enhanced'));
+            wp_die(esc_html__('Unable to retrieve user data.', 'capability-manager-enhanced'));
         } else {
+            $profile_feature_action = isset($_GET['profile_feature_action']) ? (int) sanitize_text_field($_GET['profile_feature_action']) : 0;
             if ($ppc_return_back > 0) {
                 $user_auth        = wp_unslash(self::testerAuth());
                 $original_user_id = wp_validate_auth_cookie($user_auth, 'logged_in');
+
+                if ($profile_feature_action === 1) {
+                    $redirect_url = admin_url('admin.php?page=pp-capabilities-profile-features');
+                } else {
+                    $redirect_url = admin_url();
+                }
 
                 if ($original_user_id) {
                     wp_set_auth_cookie($original_user_id, false);
@@ -68,23 +78,29 @@ class PP_Capabilities_Test_User
                     $this->clearTestUserCookie();
 
                     //redirect back to admin dashboard
-                    wp_safe_redirect(admin_url());
+                    wp_safe_redirect($redirect_url);
                     exit;
                 }
             } elseif (is_admin() && self::canTestUser($request_user)) {
+
+                if ($profile_feature_action === 1) {
+                    $redirect_url = admin_url('profile.php?ppc_profile_element=1');
+                } else {
+                    $redirect_url = admin_url();
+                }
 
                 // Create and set auth cookie for current user before switching
                 $token = function_exists('wp_get_session_token') ? wp_get_session_token() : '';
                 $orig_auth_cookie = wp_generate_auth_cookie($current_user->ID, time() + self::AUTH_COOKIE_EXPIRATION, 'logged_in', $token);
 
                 // phpcs:ignore WordPressVIPMinimum.Functions.RestrictedFunctions.cookies_setcookie
-                setcookie('ppc_test_user_tester_'.COOKIEHASH, $orig_auth_cookie, time() + self::AUTH_COOKIE_EXPIRATION, COOKIEPATH, COOKIE_DOMAIN, is_ssl(), true);
+                setcookie(self::$cookie_name, $orig_auth_cookie, time() + self::AUTH_COOKIE_EXPIRATION, COOKIEPATH, COOKIE_DOMAIN, is_ssl(), true);
 
                 // Login as the other user
                 wp_set_auth_cookie($request_user_id, false);
 
                 //redirect user to admin dashboard
-                wp_safe_redirect(admin_url());
+                wp_safe_redirect($redirect_url);
                 exit;
             }
         }
@@ -98,7 +114,7 @@ class PP_Capabilities_Test_User
     public function clearTestUserCookie() {
         // Unset the cookie
         // phpcs:ignore WordPressVIPMinimum.Functions.RestrictedFunctions.cookies_setcookie
-        setcookie('ppc_test_user_tester_'.COOKIEHASH, 0, time() - self::AUTH_COOKIE_HOUR_IN_SECONDS, COOKIEPATH, COOKIE_DOMAIN, is_ssl(), true);
+        setcookie(self::$cookie_name, 0, time() - self::AUTH_COOKIE_HOUR_IN_SECONDS, COOKIEPATH, COOKIE_DOMAIN, is_ssl(), true);
     }
 
     /**
@@ -106,7 +122,7 @@ class PP_Capabilities_Test_User
      */
     protected static function testerAuth()
     {
-        $auth_key = 'ppc_test_user_tester_'.COOKIEHASH;
+        $auth_key = self::$cookie_name;
         if (isset($_COOKIE[$auth_key]) && !empty($_COOKIE[$auth_key])) {
             // phpcs:ignore WordPressVIPMinimum.Variables.RestrictedVariables.cache_constraints___COOKIE
             return $_COOKIE[$auth_key];
@@ -123,7 +139,7 @@ class PP_Capabilities_Test_User
         $excluded_roles = (array) get_option('cme_test_user_excluded_roles', []);
 
         $can_test_user  = false;
-        if (current_user_can('manage_capabilities') 
+        if (current_user_can('manage_capabilities_user_testing') 
             && current_user_can('edit_user', $user->ID) 
             && $user->ID !== get_current_user_id()
             && !array_intersect($excluded_roles, $user->roles)

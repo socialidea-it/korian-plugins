@@ -1,63 +1,73 @@
 <?php
 
+declare(strict_types=1);
+
 namespace ACP\ListScreenRepository;
 
+use AC\ListScreenRepository\Rules;
+use AC\ListScreenRepository\Storage;
+use ACP\ListScreenRepository;
+use ACP\Search\SegmentRepository;
+use ACP\Storage\AbstractDecoderFactory;
 use ACP\Storage\Directory;
-use ACP\Storage\ListScreen\DecoderFactory;
-use ACP\Storage\ListScreen\Encoder;
-use ACP\Storage\ListScreen\Serializer\JsonSerializer;
-use ACP\Storage\ListScreen\Serializer\PhpSerializer;
-use ACP\Storage\ListScreen\SerializerTypes;
-use ACP\Storage\ListScreen\Unserializer\JsonUnserializer;
-use RuntimeException;
+use ACP\Storage\EncoderFactory;
+use ACP\Storage\Serializer;
+use InvalidArgumentException;
 
-final class FileFactory {
+final class FileFactory implements Storage\ListScreenRepositoryFactory
+{
 
-	/**
-	 * @var Encoder
-	 */
-	private $encoder;
+    private $encoder_factory;
 
-	/**
-	 * @var DecoderFactory
-	 */
-	private $decoder_factory;
+    private $decoder_factory;
 
-	public function __construct( Encoder $encoder, DecoderFactory $decoder_factory ) {
-		$this->encoder = $encoder;
-		$this->decoder_factory = $decoder_factory;
-	}
+    private $serializer;
 
-	/**
-	 * @param string    $type
-	 * @param Directory $directory
-	 *
-	 * @return File
-	 */
-	public function create( $type, Directory $directory ) {
-		switch ( $type ) {
-			case SerializerTypes::PHP:
-				$serializer = new PhpSerializer\File();
-				$unserializer = null;
+    private $i18n_serializer_factory;
 
-				break;
-			case SerializerTypes::JSON:
-				$serializer = new JsonSerializer();
-				$unserializer = new JsonUnserializer();
+    private $segment_file_factory;
 
-				break;
-			default:
-				throw new RuntimeException( 'Type of file not supported.' );
-		}
+    public function __construct(
+        EncoderFactory $encoder_factory,
+        AbstractDecoderFactory $decoder_factory,
+        Serializer\PhpSerializer\File $serializer,
+        Serializer\PhpSerializer\I18nFactory $i18n_serializer_factory,
+        SegmentRepository\FileFactory $segment_file_factory
+    ) {
+        $this->encoder_factory = $encoder_factory;
+        $this->decoder_factory = $decoder_factory;
+        $this->serializer = $serializer;
+        $this->i18n_serializer_factory = $i18n_serializer_factory;
+        $this->segment_file_factory = $segment_file_factory;
+    }
 
-		return new File(
-			$directory,
-			$type,
-			$this->encoder,
-			$this->decoder_factory,
-			$serializer,
-			$unserializer
-		);
-	}
+    public function create(
+        string $path,
+        bool $writable,
+        Rules $rules = null,
+        string $i18n_text_domain = null
+    ): Storage\ListScreenRepository {
+        if ($path === '') {
+            throw new InvalidArgumentException('Invalid path.');
+        }
+
+        $serializer = $this->serializer;
+
+        if ($i18n_text_domain) {
+            $serializer = $this->i18n_serializer_factory->create($serializer, $i18n_text_domain);
+        }
+
+        $file = new ListScreenRepository\CachedFile(
+            new ListScreenRepository\File(
+                new Directory($path),
+                $this->decoder_factory,
+                $this->encoder_factory,
+                $serializer,
+                $this->segment_file_factory
+            )
+        );
+
+        return new Storage\ListScreenRepository($file, $writable, $rules);
+    }
 
 }

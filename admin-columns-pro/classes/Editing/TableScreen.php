@@ -1,123 +1,147 @@
 <?php
 
+declare(strict_types=1);
+
 namespace ACP\Editing;
 
 use AC;
 use AC\Asset\Location;
 use AC\Asset\Style;
-use ACP\Editing;
-use ACP\Editing\Ajax\EditableRowsFactory;
-use ACP\Editing\Ajax\EditableRowsFactoryAggregate;
-use ACP\Editing\Ajax\TableRowsFactory;
+use AC\Registerable;
+use ACP\Editing\Factory\BulkEditFactory;
+use ACP\Editing\Factory\InlineEditFactory;
 use ACP\Editing\Preference\EditState;
-use LogicException;
+use ACP\Export;
 
-class TableScreen implements AC\Registrable {
+class TableScreen implements Registerable
+{
 
-	/**
-	 * @var AC\ListScreen
-	 */
-	protected $list_screen;
+    /**
+     * @var AC\ListScreen
+     */
+    private $list_screen;
 
-	/**
-	 * @var array
-	 */
-	private $editable_data;
+    /**
+     * @var Location\Absolute
+     */
+    private $location;
 
-	/**
-	 * @var AC\Asset\Location\Absolute
-	 */
-	protected $location;
+    /**
+     * @var InlineEditFactory
+     */
+    private $inline_edit_factory;
 
-	/**
-	 * @var Preference\EditState
-	 */
-	protected $edit_state;
+    /**
+     * @var BulkEditFactory
+     */
+    private $bulk_edit_factory;
 
-	/**
-	 * @var AC\Request
-	 */
-	private $request;
+    public function __construct(
+        AC\ListScreen $list_screen,
+        Location\Absolute $location,
+        InlineEditFactory $inline_edit_factory,
+        BulkEditFactory $bulk_edit_factory
+    ) {
+        $this->list_screen = $list_screen;
+        $this->location = $location;
+        $this->inline_edit_factory = $inline_edit_factory;
+        $this->bulk_edit_factory = $bulk_edit_factory;
+    }
 
-	public function __construct(
-		AC\ListScreen $list_screen,
-		array $editable_data,
-		Location\Absolute $location,
-		EditState $edit_state,
-		AC\Request $request
-	) {
-		if ( ! $list_screen instanceof Editing\ListScreen ) {
-			throw new LogicException( 'ListScreen should be of type Editing\ListScreen.' );
-		}
+    public function register(): void
+    {
+        add_action('ac/table_scripts', [$this, 'register_scripts']);
+    }
 
-		$this->list_screen = $list_screen;
-		$this->editable_data = $editable_data;
-		$this->location = $location;
-		$this->edit_state = $edit_state;
-		$this->request = $request;
-	}
+    public function register_scripts()
+    {
+        $supports = [
+            'inline_edit' => (bool)$this->inline_edit_factory->create(),
+            'bulk_edit'   => (bool)$this->bulk_edit_factory->create(),
+            'bulk_delete' => $this->is_bulk_delete_enabled(),
+            'export'      => $this->is_export_enabled(),
+        ];
 
-	public function register() {
-		add_action( 'ac/table_scripts', [ $this, 'scripts' ] );
-		add_action( 'ac/table/actions', [ $this, 'edit_button' ] );
+        // Bail if nothing is supported
+        if ( ! in_array(true, $supports, true)) {
+            return;
+        }
 
-		// Register request handlers
-		$table_rows = TableRowsFactory::create( $this->request, $this->list_screen );
+        add_action('ac/table/actions', [$this, 'edit_button']);
 
-		if ( $table_rows && $table_rows->is_request() ) {
-			$table_rows->register();
-		}
+        $script = new Asset\Script\Table(
+            'acp-editing-table',
+            $this->location->with_suffix('assets/editing/js/table.js'),
+            $this->list_screen,
+            new EditableDataFactory($this->inline_edit_factory, $this->bulk_edit_factory),
+            new Preference\EditState(),
+            $supports
+        );
 
-		EditableRowsFactoryAggregate::add_factory( new EditableRowsFactory() );
+        $script->enqueue();
 
-		$editable_rows = EditableRowsFactoryAggregate::create( $this->request, $this->list_screen );
+        // CSS
+        $style = new Style(
+            'acp-editing-table',
+            $this->location->with_suffix('assets/editing/css/table.css'),
+            ['ac-utilities']
+        );
+        $style->enqueue();
 
-		if ( $editable_rows && $editable_rows->is_request() ) {
-			$editable_rows->register();
-		}
-	}
+        // Select 2
+        wp_enqueue_script('ac-select2');
+        wp_enqueue_style('ac-select2');
 
-	public function scripts() {
-		$style = new Style( 'acp-editing-table', $this->location->with_suffix( 'assets/editing/css/table.css' ) );
-		$style->enqueue();
+        // WP Media picker
+        wp_enqueue_media();
+        wp_enqueue_style('ac-jquery-ui');
 
-		$script = new Asset\Script\Table(
-			'acp-editing-table',
-			$this->location->with_suffix( 'assets/editing/js/table.js' ),
-			$this->list_screen,
-			$this->editable_data,
-			$this->edit_state
-		);
-		$script->enqueue();
+        // WP Color picker
+        wp_enqueue_script('wp-color-picker');
+        wp_enqueue_style('wp-color-picker');
 
-		// Select 2
-		wp_enqueue_script( 'ac-select2' );
-		wp_enqueue_style( 'ac-select2' );
+        // WP Content Editor
+        wp_enqueue_editor();
 
-		// WP Media picker
-		wp_enqueue_media();
-		wp_enqueue_style( 'ac-jquery-ui' );
+        do_action('ac/table_scripts/editing', $this->list_screen);
+    }
 
-		// WP Color picker
-		wp_enqueue_script( 'wp-color-picker' );
-		wp_enqueue_style( 'wp-color-picker' );
+    public function edit_button()
+    {
+        if ( ! $this->list_screen->has_id() || ! $this->inline_edit_factory->create()) {
+            return;
+        }
 
-		// WP Content Editor
-		wp_enqueue_editor();
+        $view = new AC\View([
+            'is_active' => $this->is_edit_state_active(),
+        ]);
 
-		do_action( 'ac/table_scripts/editing', $this->list_screen );
-	}
+        echo $view->set_template('table/edit-button');
+    }
 
-	public function edit_button() {
-		if ( ! $this->list_screen->has_id() ) {
-			return;
-		}
+    private function is_edit_state_active()
+    {
+        return (new EditState())->is_active($this->list_screen->get_key());
+    }
 
-		$view = new AC\View( [
-			'is_active' => $this->edit_state->is_active( $this->list_screen->get_key() ),
-		] );
+    public function is_export_enabled(): bool
+    {
+        return Export\TableScreen::is_exportable($this->list_screen);
+    }
 
-		echo $view->set_template( 'table/edit-button' );
-	}
+    public function is_bulk_delete_enabled(): bool
+    {
+        if ( ! $this->list_screen instanceof BulkDelete\ListScreen || ! $this->list_screen->has_id()) {
+            return false;
+        }
+
+        $option = new HideOnScreen\BulkDelete();
+
+        if ($option->is_hidden($this->list_screen)) {
+            return false;
+        }
+
+        return $this->list_screen->deletable()->user_can_delete();
+    }
 
 }

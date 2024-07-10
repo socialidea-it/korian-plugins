@@ -4,11 +4,10 @@ namespace ACP\Export\Settings;
 
 use AC;
 use AC\View;
-use ACP;
 
 class Column extends AC\Settings\Column implements AC\Settings\Header {
 
-	const NAME = 'export';
+	public const NAME = 'export';
 
 	/**
 	 * @var string
@@ -20,7 +19,7 @@ class Column extends AC\Settings\Column implements AC\Settings\Header {
 	 */
 	protected function define_options() {
 		return [
-			'export' => 'off',
+			'export' => 'on',
 		];
 	}
 

@@ -28,7 +28,7 @@ class OMAPI_Debug {
 	 * @return bool
 	 */
 	public static function can_output_debug() {
-		$rules_debug = ! empty( $_GET['omwpdebug'] ) ? wp_unslash( $_GET['omwpdebug'] ) : '';
+		$rules_debug = ! empty( $_GET['omwpdebug'] ) ? sanitize_text_field( wp_unslash( $_GET['omwpdebug'] ) ) : '';
 
 		if ( $rules_debug ) {
 			$omapi         = OMAPI::get_instance();
@@ -72,11 +72,20 @@ class OMAPI_Debug {
 	 * @return void
 	 */
 	public static function output_general() {
+		// Get all registered post types.
+		$all_post_types = get_post_types( array(), 'objects' );
+
+		// Initialize an array to store the results.
 		$results = array();
 
-		$post_types = array_keys( get_post_types( array( 'public' => true ), 'names' ) );
-		foreach ( $post_types as $post_type ) {
-			$results[ is_singular( $post_type ) ? 'TRUE' : 'FALSE' ][] = "is_singular('{$post_type}')";
+		// Iterate through each post type.
+		foreach ( $all_post_types as $post_type_object ) {
+			// Check if the post type is viewable.
+			if ( is_post_type_viewable( $post_type_object ) ) {
+				$post_type = $post_type_object->name;
+				// Evaluate if the current post is singular and of this post type.
+				$results[ is_singular( $post_type ) ? 'TRUE' : 'FALSE' ][] = "is_singular('{$post_type}')";
+			}
 		}
 
 		$conditionals = array(
@@ -127,21 +136,21 @@ class OMAPI_Debug {
 				break;
 			}
 
-			// Special case for is_sticky to prevent PHP notices
+			// Special case for is_sticky to prevent PHP notices.
 			$id = null;
 			if ( ( 'is_sticky' === $conditional ) && ! get_post( $id ) ) {
 				$results['FALSE'][] = $conditional;
 				break;
 			}
 
-			// Special case for multisite $conditionals to prevent them from
-			// being annoying on single site installations
+			// Special case for multisite $conditionals to prevent them from.
+			// being annoying on single site installations.
 			if ( ! is_multisite() && in_array( $conditional, array( 'is_main_network', 'is_main_site' ), true ) ) {
 				$results['N/A'][] = $conditional;
 				break;
 			}
 
-			// Default case.
+			// The default case.
 			$results[ call_user_func( $conditional ) ? 'TRUE' : 'FALSE' ][] = $conditional;
 		}
 
@@ -157,7 +166,8 @@ class OMAPI_Debug {
 				Show Verbose Debugging Info
 			</button>
 		</div>
-		<xmp class="_om-debugging _om-optin">$conditionals: <?php print_r( $results ); ?></xmp>
+		<?php // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_var_export ?>
+		<pre class="_om-debugging _om-optin">$conditionals: <?php echo esc_html( var_export( $results, true ) ); ?></pre>
 		<?php
 	}
 

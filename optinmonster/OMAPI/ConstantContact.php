@@ -74,7 +74,7 @@ class OMAPI_ConstantContact {
 		// Set our object.
 		$this->set();
 
-		// Pages
+		// Pages.
 		add_action( 'admin_menu', array( $this, 'register_cc_page' ) );
 		add_action( 'admin_notices', array( $this, 'constant_contact_cta_notice' ) );
 		add_action( 'wp_ajax_om_constant_contact_dismiss', array( $this, 'constant_contact_dismiss' ) );
@@ -217,7 +217,13 @@ class OMAPI_ConstantContact {
 				jQuery( function ( $ ) {
 					$( document ).on( 'click', '.om-constant-contact-notice button', function ( event ) {
 						event.preventDefault();
-						$.post( ajaxurl, { action: 'om_constant_contact_dismiss' } );
+						$.post(
+							ajaxurl,
+							{
+								action: 'om_constant_contact_dismiss',
+								_wpnonce: '<?php echo esc_js( wp_create_nonce( 'om_constant_contact_dismiss' ) ); ?>',
+							}
+						);
 						$( '.om-constant-contact-notice' ).remove();
 					} );
 				} );
@@ -232,7 +238,16 @@ class OMAPI_ConstantContact {
 	 * @since 1.6.0
 	 */
 	public function constant_contact_dismiss() {
+		// Verify the nonce.
+		check_ajax_referer( 'om_constant_contact_dismiss' );
 
+		// Make sure the user can dismiss the notice.
+		$can_dismiss = $this->base->access_capability( 'optin-monster-constant-contact' );
+		if ( ! $can_dismiss ) {
+			wp_send_json_error();
+		}
+
+		// Update the option to dismiss the notice.
 		update_option( 'optinmonster_constant_contact_dismiss', 1, false );
 		wp_send_json_success();
 	}
@@ -253,6 +268,10 @@ class OMAPI_ConstantContact {
 	 * Add body classes.
 	 *
 	 * @since 2.0.0
+	 *
+	 * @param string $classes Body classes.
+	 *
+	 * @return string Body classes.
 	 */
 	public function add_body_classes( $classes ) {
 		$classes .= ' omapi-constant-contact ';

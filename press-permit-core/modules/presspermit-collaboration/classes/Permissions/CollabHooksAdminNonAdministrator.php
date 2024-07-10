@@ -61,7 +61,7 @@ class CollabHooksAdminNonAdministrator
                 return ('edit' == $rest->operation) ? 'manage' : $rest->operation;
             }
         } elseif (in_array($pagenow, ['edit-tags.php', 'nav-menus.php'])) {
-            $required_operation = (!presspermit_empty_REQUEST('tag_ID') && (empty($args['name']) || ('parent' != $args['name']))) 
+            $required_operation = (!PWP::empty_REQUEST('tag_ID') && (empty($args['name']) || ('parent' != $args['name']))) 
             ? 'manage' 
             : 'associate';
         }
@@ -81,7 +81,7 @@ class CollabHooksAdminNonAdministrator
 
             // Force term retrieval for Gutenberg UI construction to be filtered by 'assign' exceptions, not 'read' exceptions
             if ((empty($args['required_operation']) || ($args['required_operation'] == 'read'))) {
-                if (!empty($_SERVER['HTTP_REFERER']) && strpos(esc_url_raw($_SERVER['HTTP_REFERER']), 'wp-admin/post')) {
+                if (!empty($_SERVER['HTTP_REFERER']) && false !== strpos(esc_url_raw($_SERVER['HTTP_REFERER']), PWP::admin_rel_url('post'))) {
                     $args['required_operation'] = 'assign';
                 }
             }
@@ -111,7 +111,7 @@ class CollabHooksAdminNonAdministrator
                 //---------------------------------------------------------
 
                 // Don't filter get_terms() call in edit_post(), which invalidates entry term selection if existing term is detected
-                if (!empty($args['name']) && !presspermit_empty_POST())
+                if (!empty($args['name']) && !PWP::empty_POST())
                     return $clauses;
 
                 if ($tt_ids = Collab::getObjectTerms($object_id, $taxonomies[0], ['fields' => 'tt_ids', 'pp_no_filter' => true])) {

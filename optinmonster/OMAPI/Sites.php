@@ -61,13 +61,13 @@ class OMAPI_Sites {
 	 *
 	 * @since 1.8.0
 	 *
-	 * @param mixed $api_key    If we want to use a custom API Key, pass it in.
-	 * @param bool  $get_cached Whether to get the cached response. Defaults to false.
+	 * @param string $api_key    If we want to use a custom API Key, pass it in.
+	 * @param bool   $get_cached Whether to get the cached response. Defaults to false.
 	 *
-	 * @return array|null $sites An array of sites if the request is successful.
+	 * @return array|null|WP_Error $sites An array of sites if the request is successful.
 	 */
-	public function fetch( $api_key = null, $get_cached = false ) {
-		$cache_key = 'om_sites' . md5( $api_key );
+	public function fetch( $api_key = '', $get_cached = false ) {
+		$cache_key = 'om_sites' . md5( $api_key ? $api_key : '' );
 
 		if ( $get_cached ) {
 			$results = get_transient( $cache_key );
@@ -184,15 +184,13 @@ class OMAPI_Sites {
 	 * @return mixed         Site-created response or WP_Error.
 	 */
 	public function attempt_create_site( $creds ) {
+		$settings              = OMAPI_Api::get_url_args();
+		$settings['wordpress'] = 1;
+
 		$site_args = array(
 			'domain'   => esc_url_raw( site_url() ),
 			'name'     => esc_attr( get_option( 'blogname' ) ),
-			'settings' => array(
-				'wordpress' => 1,
-				'homeUrl'   => esc_url_raw( home_url() ),
-				'restUrl'   => esc_url_raw( get_rest_url() ),
-				'adminUrl'  => esc_url_raw( get_admin_url() ),
-			),
+			'settings' => $settings,
 		);
 
 		// Create/update the site for this WordPress site.
@@ -214,7 +212,7 @@ class OMAPI_Sites {
 	 */
 	public function get_domain() {
 		$url      = site_url();
-		$parsed   = OMAPI_Utils::parse_url( $url );
+		$parsed   = wp_parse_url( $url );
 		$hostname = ! empty( $parsed['host'] ) ? $parsed['host'] : $url;
 		$domain   = preg_replace( '/^www\./', '', $hostname );
 

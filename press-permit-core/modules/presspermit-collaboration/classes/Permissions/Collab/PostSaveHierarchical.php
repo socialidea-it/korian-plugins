@@ -5,7 +5,7 @@ class PostSaveHierarchical
 {
     public static function fltPageParent($parent_id, $post_type = '')
     {
-        if (function_exists('bbp_get_version') && presspermit_is_REQUEST('action', ['bbp-new-topic', 'bbp-new-reply'])) {
+        if (function_exists('bbp_get_version') && PWP::is_REQUEST('action', ['bbp-new-topic', 'bbp-new-reply'])) {
             return $parent_id;
         }
 
@@ -20,11 +20,13 @@ class PostSaveHierarchical
         $selected_parent_id = $parent_id;
 
         // this filter is not intended to regulate attachment parent
-        if (isset($_SERVER['REQUEST_URI']) && strpos(esc_url_raw($_SERVER['REQUEST_URI']), 'async-upload.php') && presspermit_is_REQUEST('action', 'upload-attachment')) {
+        if (isset($_SERVER['REQUEST_URI']) && strpos(esc_url_raw($_SERVER['REQUEST_URI']), 'async-upload.php') && PWP::is_REQUEST('action', 'upload-attachment')) {
             return $parent_id;
         }
 
-        $post_id = PWP::getPostID();
+        if (!$post_id = presspermit()->getCurrentSanitizePostID()) {
+            $post_id = PWP::getPostID();
+        }
 
         if (!$post_type && presspermit()->doingREST() && \PublishPress\Permissions\REST::getPostType()) {
             if ($post_id) {
@@ -73,8 +75,6 @@ class PostSaveHierarchical
 
             $user = presspermit()->getUser();
 
-            $descendants = self::getPageDescendantIds($post_id);
-
             $additional_ids = $user->getExceptionPosts('associate', 'additional', $post_type);
 
             if ($include_ids = $user->getExceptionPosts('associate', 'include', $post_type)) {
@@ -91,28 +91,42 @@ class PostSaveHierarchical
             }
 
             if ($parent_id) {
-                if (in_array($parent_id, $descendants) || ($post_id == $parent_id)) {
+                if (defined('PRESSPERMIT_OWN_DESCENDENT_CHECK')) {
+                    $descendants = self::getPageDescendantIds($post_id);
+
+                    if (in_array($parent_id, $descendants)) {
+                        $revert = true;
+                    }
+                }
+
+                if ($post_id == $parent_id) {
                     $revert = true;
                 }
 
                 if ($revert) {
-                    $parent_id = self::revertPageParent($post_id, $post_type, compact('descendants', 'include_ids', 'exclude_ids'));
+                    $parent_id = self::revertPageParent($post_id, $post_type, compact('include_ids', 'exclude_ids'));
                 }
             }
 
-            $parent_id = apply_filters(
-                'presspermit_validate_page_parent', 
-                $parent_id, 
-                $post_type, 
-                compact('descendants', 'include_ids', 'exclude_ids')
-            );
+            if (defined('PRESSPERMIT_FILTER_VALIDATE_PAGE_PARENT')) {
+                if (!isset($descendants)) {
+                    $descendants = self::getPageDescendantIds($post_id);
+                }
+
+                $parent_id = apply_filters(
+                    'presspermit_validate_page_parent', 
+                    $parent_id, 
+                    $post_type, 
+                    compact('descendants', 'include_ids', 'exclude_ids')
+                );
+            }
 
             // subsequent filtering is currently just a safeguard against invalid "no parent" posting in violation of lock_top_pages
             // if ( $parent_id || ( ! $selected_parent_id && Collab::userCanAssociateMain( $post_type ) ) )
             if ($parent_id || Collab::userCanAssociateMain($post_type))
                 return $parent_id;
 
-            return self::revertPageParent($post_id, $post_type, compact('descendants', 'include_ids', 'exclude_ids'));
+            return self::revertPageParent($post_id, $post_type, compact('include_ids', 'exclude_ids'));
         }
 
         $return[$post_id] = $parent_id;
@@ -125,6 +139,9 @@ class PostSaveHierarchical
         global $wpdb;
 
         if (empty($pages)) {
+            // Single direct query for each get_pages() call or page parent update
+
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
             $pages = $wpdb->get_results(
                 "SELECT ID, post_parent FROM $wpdb->posts WHERE post_parent > 0 AND post_type NOT IN ( 'revision', 'attachment' )"
             );
@@ -146,7 +163,7 @@ class PostSaveHierarchical
 
     private static function revertPageParent($post_id, $post_type, $args = [])
     {
-        $defaults = ['descendants' => [], 'include_ids' => [], 'exclude_ids' => []];
+        $defaults = ['include_ids' => [], 'exclude_ids' => []];
         $args = array_merge($defaults, $args);
         foreach (array_keys($defaults) as $var) {
             $$var = $args[$var];
@@ -164,12 +181,17 @@ class PostSaveHierarchical
         $statuses_csv = implode("','", array_map('sanitize_key', $valid_statuses));
 
         global $wpdb;
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         $valid_parents = $wpdb->get_col(
             $wpdb->prepare(
+                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
                 "SELECT ID FROM $wpdb->posts WHERE post_type = %s AND post_status IN ('$statuses_csv') AND ID > 0 ORDER BY post_parent, ID ASC",
                 $post_type
             )
         );
+
+        $descendants = self::getPageDescendantIds($post_id);
 
         $valid_parents = array_diff($valid_parents, $descendants, (array)$post_id);
         $allowed_parents = $valid_parents;
@@ -233,15 +255,21 @@ class PostSaveHierarchical
         global $post;
 
         // user can't associate / un-associate a page with Main page unless they have edit_pages site-wide
-        if ($post_id = presspermit_POST_int('post_ID')) {
-            $selected_parent_id = presspermit_POST_int('parent_id');
+        if ($post_id = PWP::POST_int('post_ID')) {
+            $selected_parent_id = PWP::POST_int('parent_id');
         } elseif (!empty($post)) {
             $post_id = $post->ID;
             $selected_parent_id = $post->post_parent;
         } else
             return $status;
 
-        $_post = get_post($post_id);
+        if (!$_post = get_post($post_id)) {
+            return $status;
+        }
+
+        if (empty($_post->post_status)) {
+            return $status;
+        }
 
         if ($saved_status_object = get_post_status_object($_post->post_status))
             $already_published = ($saved_status_object->public || $saved_status_object->private);
@@ -259,7 +287,7 @@ class PostSaveHierarchical
             return $status;
         }
 
-        if (presspermit_empty_POST('parent_id')) {
+        if (PWP::empty_POST('parent_id')) {
             if (!$already_published) {  // This should only ever happen if the POST data is manually fudged
                 if ($post_status_object = get_post_status_object($status)) {
                     if ($post_status_object->public || $post_status_object->private) {

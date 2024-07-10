@@ -1,32 +1,24 @@
 <?php
 
+declare(strict_types=1);
+
 namespace AC;
 
+use AC\ListScreenRepository\Sort;
 use AC\Type\ListScreenId;
+use WP_User;
 
-interface ListScreenRepository {
+interface ListScreenRepository
+{
 
-	const KEY = 'key';
+    public function find(ListScreenId $id): ?ListScreen;
 
-	/**
-	 * @param ListScreenId $id
-	 *
-	 * @return ListScreen|null
-	 */
-	public function find( ListScreenId $id );
+    public function exists(ListScreenId $id): bool;
 
-	/**
-	 * @param ListScreenId $id
-	 *
-	 * @return bool
-	 */
-	public function exists( ListScreenId $id );
+    public function find_all(Sort $sort = null): ListScreenCollection;
 
-	/**
-	 * @param array $args
-	 *
-	 * @return ListScreenCollection
-	 */
-	public function find_all( array $args = [] );
+    public function find_all_by_key(string $key, Sort $sort = null): ListScreenCollection;
+
+    public function find_all_by_assigned_user(string $key, WP_User $user, Sort $sort = null): ListScreenCollection;
 
 }

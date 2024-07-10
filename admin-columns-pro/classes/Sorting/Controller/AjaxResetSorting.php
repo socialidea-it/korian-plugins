@@ -3,52 +3,61 @@
 namespace ACP\Sorting\Controller;
 
 use AC\Ajax;
+use AC\ListScreenFactory;
 use AC\ListScreenRepository\Storage;
-use AC\Registrable;
+use AC\Registerable;
 use AC\Type\ListScreenId;
 use ACP\Sorting\UserPreference;
 
-class AjaxResetSorting implements Registrable {
+class AjaxResetSorting implements Registerable
+{
 
-	/**
-	 * @var Storage
-	 */
-	private $storage;
+    private $storage;
 
-	public function __construct( Storage $storage ) {
-		$this->storage = $storage;
-	}
+    private $list_screen_factory;
 
-	public function register() {
-		$this->get_ajax_handler()->register();
-	}
+    public function __construct(Storage $storage, ListScreenFactory $list_screen_factory)
+    {
+        $this->storage = $storage;
+        $this->list_screen_factory = $list_screen_factory;
+    }
 
-	private function get_ajax_handler() {
-		$handler = new Ajax\Handler();
-		$handler
-			->set_action( 'acp_reset_sorting' )
-			->set_callback( [ $this, 'handle_reset' ] );
+    public function register(): void
+    {
+        $this->get_ajax_handler()->register();
+    }
 
-		return $handler;
-	}
+    private function get_ajax_handler(): Ajax\Handler
+    {
+        $handler = new Ajax\Handler();
+        $handler
+            ->set_action('acp_reset_sorting')
+            ->set_callback([$this, 'handle_reset']);
 
-	public function handle_reset() {
-		$this->get_ajax_handler()->verify_request();
-		$storage_key = filter_input( INPUT_POST, 'list_screen' );
+        return $handler;
+    }
 
-		if ( filter_input( INPUT_POST, 'layout' ) ) {
-			$list_screen = $this->storage->find( new ListScreenId( filter_input( INPUT_POST, 'layout' ) ) );
+    public function handle_reset()
+    {
+        $this->get_ajax_handler()->verify_request();
 
-			if ( ! $list_screen ) {
-				exit;
-			}
+        $list_screen = null;
+        $list_id = filter_input(INPUT_POST, 'layout');
+        $list_key = filter_input(INPUT_POST, 'list_screen');
 
-			$storage_key = $list_screen->get_storage_key();
-		}
+        if (ListScreenId::is_valid_id($list_id)) {
+            $list_screen = $this->storage->find(new ListScreenId($list_id));
+        } elseif ($list_key && $this->list_screen_factory->can_create($list_key)) {
+            $list_screen = $this->list_screen_factory->create($list_key);
+        }
 
-		$preference = new UserPreference\SortType( $storage_key );
+        if ( ! $list_screen) {
+            wp_send_json_error();
+        }
 
-		wp_send_json_success( $preference->delete() );
-	}
+        $preference = new UserPreference\SortType($list_screen->get_storage_key());
+
+        wp_send_json_success($preference->delete());
+    }
 
 }

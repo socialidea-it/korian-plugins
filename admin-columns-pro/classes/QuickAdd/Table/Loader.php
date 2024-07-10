@@ -3,15 +3,14 @@
 namespace ACP\QuickAdd\Table;
 
 use AC\Asset\Location;
-use AC\Registrable;
+use AC\Registerable;
 use AC\Table;
 use ACP\QuickAdd\Admin\HideOnScreen;
 use ACP\QuickAdd\Filter;
 use ACP\QuickAdd\Model;
 use ACP\QuickAdd\Table\Checkbox\ShowButton;
-use ACP\QuickAdd\Table\Preference;
 
-class Loader implements Registrable {
+class Loader implements Registerable {
 
 	/**
 	 * @var Location\Absolute
@@ -40,7 +39,8 @@ class Loader implements Registrable {
 		$this->filter = $filter;
 	}
 
-	public function register() {
+	public function register(): void
+    {
 		add_action( 'ac/table', [ $this, 'load' ] );
 	}
 

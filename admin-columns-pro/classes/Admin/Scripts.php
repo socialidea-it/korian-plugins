@@ -4,62 +4,68 @@ namespace ACP\Admin;
 
 use AC\Asset;
 use AC\Asset\Enqueueable;
-use AC\Registrable;
+use AC\Entity\Plugin;
+use AC\Registerable;
 use ACP\Access\PermissionsStorage;
 use ACP\Asset\Script;
 use ACP\Transient\LicenseCheckTransient;
 
-class Scripts implements Registrable {
+class Scripts implements Registerable
+{
 
-	/**
-	 * @var Asset\Location\Absolute
-	 */
-	private $location;
+    private $location;
 
-	/**
-	 * @var PermissionsStorage
-	 */
-	private $permission_storage;
+    private $permission_storage;
 
-	/**
-	 * @var bool
-	 */
-	private $network_active;
+    private $plugin;
 
-	public function __construct( Asset\Location\Absolute $location, PermissionsStorage $permission_storage, $network_active ) {
-		$this->location = $location;
-		$this->permission_storage = $permission_storage;
-		$this->network_active = (bool) $network_active;
-	}
+    public function __construct(
+        Asset\Location\Absolute $location,
+        PermissionsStorage $permission_storage,
+        Plugin $plugin
+    ) {
+        $this->location = $location;
+        $this->permission_storage = $permission_storage;
+        $this->plugin = $plugin;
+    }
 
-	public function register() {
-		add_action( 'ac/admin_scripts', function () {
-			array_map( [ $this, 'enqueue' ], $this->get_enqueables() );
-		} );
-	}
+    public function register(): void
+    {
+        add_action('ac/admin_scripts', [$this, 'register_usage_limiter']);
+        add_action('admin_enqueue_scripts', [$this, 'register_daily_license_check']);
+    }
 
-	private function get_enqueables() {
-		$enqueables = [];
+    public function register_usage_limiter(): void
+    {
+        if ($this->permission_storage->retrieve()->has_usage_permission()) {
+            return;
+        }
 
-		if ( ! $this->permission_storage->retrieve()->has_usage_permission() ) {
-			$enqueables[] = new Asset\Style( 'acp-usage-limiter', $this->location->with_suffix( 'assets/core/css/usage-limiter.css' ) );
-			$enqueables[] = new Asset\Script( 'acp-usage-limiter', $this->location->with_suffix( 'assets/core/js/usage-limiter.js' ) );
-		}
+        $assets = [
+            new Asset\Style('acp-usage-limiter', $this->location->with_suffix('assets/core/css/usage-limiter.css')),
+            new Asset\Script('acp-usage-limiter', $this->location->with_suffix('assets/core/js/usage-limiter.js')),
+        ];
 
-		// Daily license update
-		$transient = new LicenseCheckTransient( $this->network_active );
+        array_map([$this, 'enqueue'], $assets);
+    }
 
-		if ( $transient->is_expired() ) {
-			$enqueables[] = new Script\LicenseCheck( $this->location->with_suffix( 'assets/core/js/license-check.js' ) );
+    public function register_daily_license_check(): void
+    {
+        $transient = new LicenseCheckTransient($this->plugin->is_network_active());
 
-			$transient->save( DAY_IN_SECONDS );
-		}
+        if ( ! $transient->is_expired()) {
+            return;
+        }
 
-		return $enqueables;
-	}
+        $script = new Script\LicenseCheck($this->location->with_suffix('assets/core/js/license-check.js'));
+        $script->enqueue();
 
-	private function enqueue( Enqueueable $enqueueable ) {
-		$enqueueable->enqueue();
-	}
+        $transient->save((int)DAY_IN_SECONDS);
+    }
+
+    private function enqueue(Enqueueable $assets)
+    {
+        $assets->enqueue();
+    }
 
 }

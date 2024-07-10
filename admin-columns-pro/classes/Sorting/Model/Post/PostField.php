@@ -2,49 +2,45 @@
 
 namespace ACP\Sorting\Model\Post;
 
-use ACP\Sorting\AbstractModel;
+use ACP\Query\Bindings;
+use ACP\Sorting\Model\QueryBindings;
+use ACP\Sorting\Model\SqlOrderByFactory;
+use ACP\Sorting\Type\DataType;
+use ACP\Sorting\Type\Order;
 
-class PostField extends AbstractModel {
+class PostField implements QueryBindings
+{
 
-	/**
-	 * @var string
-	 */
-	protected $field;
+    protected $field;
 
-	public function __construct( $field ) {
-		parent::__construct();
+    protected $data_type;
 
-		$this->field = (string) $field;
-	}
+    public function __construct(string $field, DataType $data_type = null)
+    {
+        $this->field = $field;
+        $this->data_type = $data_type;
+    }
 
-	public function get_sorting_vars() {
-		add_filter( 'posts_orderby', [ $this, 'posts_orderby_callback' ] );
+    public function create_query_bindings(Order $order): Bindings
+    {
+        global $wpdb;
 
-		if ( ! $this->show_empty ) {
-			add_filter( 'posts_where', [ $this, 'posts_where_callback' ] );
-		}
+        return (new Bindings())->order_by(
+            SqlOrderByFactory::create("$wpdb->posts.$this->field", (string)$order, [
+                'empty_values' => $this->create_empty_values(),
+            ])
+        );
+    }
 
-		return [
-			'suppress_filters' => false,
-		];
-	}
-
-	public function posts_orderby_callback() {
-		global $wpdb;
-
-		remove_filter( 'posts_orderby', [ $this, __FUNCTION__ ] );
-
-		return sprintf( '%s.`%s` %s', $wpdb->posts, esc_sql( $this->field ), $this->get_order() );
-	}
-
-	public function posts_where_callback( $where ) {
-		global $wpdb;
-
-		remove_filter( 'posts_where', [ $this, __FUNCTION__ ] );
-
-		$where .= sprintf( " AND %s.%s <> ''", $wpdb->posts, esc_sql( $this->field ) );
-
-		return $where;
-	}
+    private function create_empty_values(): ?array
+    {
+        switch ($this->data_type) {
+            case DataType::DATETIME:
+            case DataType::DATE:
+                return [0];
+            default:
+                return [null, ''];
+        }
+    }
 
 }

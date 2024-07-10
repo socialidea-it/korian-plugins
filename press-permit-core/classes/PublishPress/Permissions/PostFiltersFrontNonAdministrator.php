@@ -5,7 +5,7 @@ namespace PublishPress\Permissions;
 class PostFiltersFrontNonAdministrator
 {
     public function __construct() { // Ubermenu: intermittant failure to display top level menu items
-        if (!defined('PP_DISABLE_NAV_MENU_FILTER') && (!defined('UBERMENU_VERSION') || presspermit()->getOption('force_nav_menu_filter'))) {
+        if (!defined('PP_DISABLE_NAV_MENU_FILTER') && !defined('SHORTCODE_IN_MENUS_RES') && (!defined('UBERMENU_VERSION') || presspermit()->getOption('force_nav_menu_filter'))) {
             if (is_user_logged_in() || !presspermit()->getOption('anonymous_unfiltered')) {
             	add_filter('wp_get_nav_menu_items', [$this, 'fltNavMenuItems'], 50, 3);
             }
@@ -118,9 +118,10 @@ class PostFiltersFrontNonAdministrator
             ['post_types' => $post_types, 'skip_teaser' => true, 'required_operation' => 'read', 'force_types' => true]
         );
 
-        $query = "SELECT {$clauses['distinct']} ID FROM $wpdb->posts {$clauses['join']} WHERE 1=1 {$clauses['where']}";
-
-        $okay_ids = $wpdb->get_col($query);
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $okay_ids = $wpdb->get_col(
+            "SELECT {$clauses['distinct']} ID FROM $wpdb->posts {$clauses['join']} WHERE 1=1 {$clauses['where']}"  // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        );
 
         foreach ($post_types as $_post_type) {
             $remove_ids = array_diff($item_types['post_type'][$_post_type], $okay_ids);

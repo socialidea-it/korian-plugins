@@ -1,8 +1,11 @@
 <?php
 /**
- * Suppor Class, handles generating info for support.
+ * Support Class, handles generating info for support.
  *
  * @since 1.9.10
+ *
+ * @package OMAPI
+ * @author  Justin Sternberg
  */
 
 // Exit if accessed directly.
@@ -39,6 +42,9 @@ class OMAPI_Support {
 	 * Combine Support data together.
 	 *
 	 * @since 1.9.10
+	 *
+	 * @param string $format The format to return the data in.
+	 *
 	 * @return array
 	 */
 	public function get_support_data( $format = 'raw' ) {
@@ -53,6 +59,8 @@ class OMAPI_Support {
 	 * Build Current Optin data array to localize
 	 *
 	 * @since 1.9.10
+	 *
+	 * @param string $format The format to return the data in.
 	 *
 	 * @return array
 	 */
@@ -105,6 +113,8 @@ class OMAPI_Support {
 	 *
 	 * @since 1.9.10
 	 *
+	 * @param string $format The format to return the data in.
+	 *
 	 * @return array
 	 */
 	public function get_server_data( $format = 'raw' ) {
@@ -135,6 +145,7 @@ class OMAPI_Support {
 				'Parent Theme'     => $theme_data->{'Parent Theme'},
 			)
 			: $theme_data->Name . ' ' . $theme_data->Version;
+		// phpcs:enable WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 
 		$active_plugins = get_option( 'active_plugins', array() );
 		$plugins        = 'raw' === $format ? array() : "\n";
@@ -153,30 +164,30 @@ class OMAPI_Support {
 		$api_ping = wp_remote_request( OPTINMONSTER_APP_URL . '/v1/ping' );
 
 		$array = array(
-			'Plugin Version'     => esc_html( $this->base->version ),
+			'Plugin Version'      => esc_html( $this->base->version ),
 			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotValidated, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-			'Server Info'        => esc_html( wp_unslash( $_SERVER['SERVER_SOFTWARE'] ) ),
-			'PHP Version'        => function_exists( 'phpversion' ) ? esc_html( phpversion() ) : 'Unable to check.',
-			'Error Log Location' => function_exists( 'ini_get' ) ? ini_get( 'error_log' ) : 'Unable to locate.',
-			'Default Timezone'   => date_default_timezone_get(),
-			'Site Timezone'      => wp_timezone_string(),
-			'Site Name'          => esc_html( get_option( 'blogname' ) ),
-			'Admin Email'        => esc_html( get_site_option( 'admin_email' ) ),
-			'WordPress Home URL' => esc_url_raw( get_home_url() ),
-			'WordPress Site URL' => esc_url_raw( get_site_url() ),
-			'WordPress REST URL' => esc_url_raw( get_rest_url() ),
-			'WordPress Version'  => $GLOBALS['wp_version'],
-			'Multisite'          => is_multisite(),
-			'Language'           => get_locale(),
-			'API Ping Response'  => wp_remote_retrieve_response_code( $api_ping ),
-			'Active Theme'       => $theme,
-			'Active Plugins'     => $plugins,
+			'Server Info'         => esc_html( wp_unslash( $_SERVER['SERVER_SOFTWARE'] ) ),
+			'PHP Version'         => function_exists( 'phpversion' ) ? esc_html( phpversion() ) : 'Unable to check.',
+			'Error Log Location'  => function_exists( 'ini_get' ) ? ini_get( 'error_log' ) : 'Unable to locate.',
+			'Default Timezone'    => date_default_timezone_get(),
+			'Site Timezone'       => wp_timezone_string(),
+			'Site Name'           => esc_html( get_option( 'blogname' ) ),
+			'Admin Email'         => esc_html( get_site_option( 'admin_email' ) ),
+			'WordPress Home URL'  => esc_url_raw( get_home_url() ),
+			'WordPress Site URL'  => esc_url_raw( get_site_url() ),
+			'WordPress REST URL'  => esc_url_raw( get_rest_url() ),
+			'WordPress Admin URL' => esc_url_raw( OMAPI_Urls::admin() ),
+			'WordPress Version'   => $GLOBALS['wp_version'],
+			'Multisite'           => is_multisite(),
+			'Language'            => get_locale(),
+			'API Ping Response'   => wp_remote_retrieve_response_code( $api_ping ),
+			'Active Theme'        => $theme,
+			'Active Plugins'      => $plugins,
 		);
 
 		if ( 'raw' !== $format ) {
 			$array['Multisite'] = $array['Multisite'] ? 'Multisite Enabled' : 'Not Multisite';
 		}
-		// phpcs:enable
 
 		return $array;
 	}
@@ -190,9 +201,67 @@ class OMAPI_Support {
 	 */
 	public function get_settings_data() {
 		$options = $this->base->get_option();
+
+		// Remove the optins key. We don't need this in the settings data.
 		unset( $options['optins'] );
+
+		// List of keys to mask in the settings array.
+		$sensitive_keys = array(
+			array( 'api', 'apikey' ),
+			array( 'api', 'key' ),
+			array( 'api', 'user' ),
+			array( 'edd', 'key' ),
+			array( 'edd', 'token' ),
+			array( 'woocommerce', 'key_id' ),
+		);
+
+		/**
+		 * Filters the extra keys array, allowing additional keys to be added.
+		 *
+		 * @since 2.16.3
+		 *
+		 * @param array $extra_keys The list of sensitive keys. Defaults to an empty array.
+		 */
+		$extra_keys = (array) apply_filters( 'optin_monster_redacted_sensitive_keys', array() );
+
+		$this->mask_sensitive_data_recursive( $options, array_merge( $sensitive_keys, $extra_keys ) );
 
 		return $options;
 	}
 
+	/**
+	 * Recursively mask sensitive data in an array.
+	 *
+	 * @since 2.16.3
+	 *
+	 * @param array $data           The data array.
+	 * @param array $sensitive_keys The list of sensitive keys.
+	 *
+	 * @return void
+	 */
+	public function mask_sensitive_data_recursive( &$data, $sensitive_keys = array() ) {
+		foreach ( $sensitive_keys as $path ) {
+			$ref        = &$data;
+			$path_count = 0;
+
+			foreach ( (array) $path as $key ) {
+				$path_count++;
+
+				// If the key doesn't exist, break out of the loop.
+				if ( ! isset( $ref[ $key ] ) ) {
+					break;
+				}
+
+				// Set a reference to the next level of the array.
+				$ref = &$ref[ $key ];
+
+				// If we're at the end of the path array, mask the value.
+				if ( count( $path ) === $path_count && ! empty( $ref ) ) {
+					$ref = substr( (string) $ref, 0, 2 )
+						. str_repeat( '*', strlen( (string) $ref ) - 4 )
+						. substr( (string) $ref, -2 );
+				}
+			}
+		}
+	}
 }

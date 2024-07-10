@@ -27,7 +27,7 @@ if ( 1 == $ual_delete_data ) {
 	// delete database table.
 	global $wpdb;
 	$table_name = $wpdb->prefix . 'ualp_user_activity';
-	$wpdb->query( "DROP TABLE IF EXISTS {$table_name}" );
+	$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}ualp_user_activity" );
 	delete_option( 'ualDeleteData' );
 }
 

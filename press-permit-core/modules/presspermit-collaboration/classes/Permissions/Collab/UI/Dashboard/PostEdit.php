@@ -11,7 +11,7 @@ class PostEdit
         add_action('admin_print_footer_scripts', [$this, 'suppress_upload_ui']);
         add_action('admin_print_footer_scripts', [$this, 'suppress_add_category_ui']);
 
-        if (presspermit_is_REQUEST('message', 6)) {
+        if (PWP::is_REQUEST('message', 6)) {
             add_filter('post_updated_messages', [$this, 'flt_post_updated_messages']);
         }
 
@@ -40,6 +40,8 @@ class PostEdit
             $descendants = \PublishPress\Permissions\Collab\PostSaveHierarchical::getPageDescendantIds($post->ID);
             $descendants[] = $post->ID;
             $clauses['where'] .= " AND $col_id NOT IN ('" . implode("','", $descendants) . "')";
+        } else {
+            $descendants = [];
         }
 
         if (!current_user_can('pp_associate_any_page')) {
@@ -51,6 +53,15 @@ class PostEdit
                 compact('col_id'))
             ) {
                 $clauses['where'] .= $restriction_where;
+            }
+
+            $user = presspermit()->getUser();
+
+            // If all included parent IDs are descendants (or the page itself), avoid treating it as unrestricted
+            if ($include_ids = $user->getExceptionPosts('associate', 'include', $post_type)) {
+                if (!array_diff($include_ids, $descendants)) {
+                    $clauses['where'] .= " AND 1=2";
+                }
             }
         }
 
@@ -110,7 +121,7 @@ class PostEdit
 
         wp_enqueue_script('presspermit-agent-select', PRESSPERMIT_URLPATH . "/common/js/agent-exception-select{$suffix}.js", ['jquery', 'jquery-form'], PRESSPERMIT_VERSION, true);
         $wp_scripts->in_footer[] = 'presspermit-agent-select';
-        wp_localize_script('presspermit-agent-select', 'PPAgentSelect', ['adminurl' => admin_url(''), 'ajaxhandler' => 'got_ajax_listbox']);
+        wp_localize_script('presspermit-agent-select', 'PPAgentSelect', ['ajaxurl' => wp_nonce_url(admin_url(''), 'pp-ajax'), 'ajaxhandler' => 'got_ajax_listbox']);
 
         $suffix = defined('SCRIPT_DEBUG') && SCRIPT_DEBUG ? '.dev' : '';
         wp_enqueue_script('presspermit-collab-post-edit', PRESSPERMIT_COLLAB_URLPATH . "/common/js/post-edit{$suffix}.js", [], PRESSPERMIT_COLLAB_VERSION);
@@ -139,7 +150,7 @@ class PostEdit
         <script type="text/javascript">
             /* <![CDATA[ */
             jQuery(document).ready(function ($) {
-                $('#visibility-radio-<?php echo esc_attr($set_visibility); ?>').click();
+                $('#visibility-radio-<?php echo esc_attr($set_visibility); ?>').prop('selected', 'selected');
 
                 if (typeof(postL10n) != 'undefined') {
 					var vis = $('#post-visibility-select input:radio:checked').val();

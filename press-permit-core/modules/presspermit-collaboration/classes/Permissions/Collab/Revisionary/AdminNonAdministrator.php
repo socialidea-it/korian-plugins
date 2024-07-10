@@ -1,7 +1,6 @@
 <?php
 namespace PublishPress\Permissions\Collab\Revisionary;
 
-
 class AdminNonAdministrator
 {
     function __construct() {
@@ -27,6 +26,8 @@ class AdminNonAdministrator
             $src_table = ($args['source_alias']) ? $args['source_alias'] : $wpdb->posts;
 
             if (!empty($args['user']->ID)) {
+
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
                 if ($owner_object_ids = $wpdb->get_col(
                     $wpdb->prepare(
                         "SELECT ID FROM $wpdb->posts WHERE post_type = %s AND post_author = %d", 

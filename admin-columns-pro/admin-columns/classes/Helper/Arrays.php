@@ -30,11 +30,11 @@ class Arrays {
 	 *
 	 * @return array
 	 */
-	function add_nested_value( array $keys, $value, array $result = [] ) {
+	public function add_nested_value( array $keys, $value, array $result = [] ) {
 		$key = array_shift( $keys );
 
 		if ( $keys ) {
-			$value = add_nested_value( $keys, $value, is_array( $result[ $key ] ) ? $result[ $key ] : [] );
+			$value = $this->add_nested_value( $keys, $value, is_array( $result[ $key ] ) ? $result[ $key ] : [] );
 		}
 
 		$result[ $key ] = $value;
@@ -69,48 +69,25 @@ class Arrays {
 	 * @return string Imploded array
 	 * @since 3.0
 	 */
-	public function implode_recursive( $glue, $pieces ) {
-		if ( is_array( $pieces ) ) {
-			foreach ( $pieces as $r_pieces ) {
-				if ( is_array( $r_pieces ) ) {
-					$retVal[] = $this->implode_recursive( $glue, $r_pieces );
-				} else {
-					$retVal[] = $r_pieces;
-				}
-			}
-			if ( isset( $retVal ) && is_array( $retVal ) ) {
-				return implode( $glue, $retVal );
-			}
-		}
-
+	public function implode_recursive( string $glue, $pieces ): string {
 		if ( is_scalar( $pieces ) ) {
 			return $pieces;
 		}
 
-		return false;
-	}
+		$scalars = [];
 
-	/**
-	 * Replace a single key in an associative array
-	 *
-	 * @param array      $input   Input array.
-	 * @param int|string $old_key Key to replace.
-	 * @param int|string $new_key Key to replace $old_key with
-	 *
-	 * @return array
-	 * @since 2.2.7
-	 */
-	public function key_replace( $input, $old_key, $new_key ) {
-		$keys = array_keys( $input );
-		$old_key_pos = array_search( $old_key, $keys );
-
-		if ( $old_key_pos === false ) {
-			return $input;
+		if ( is_array( $pieces ) ) {
+			foreach ( $pieces as $r_pieces ) {
+				if ( is_array( $r_pieces ) ) {
+					$scalars[] = $this->implode_recursive( $glue, $r_pieces );
+				}
+				if ( is_scalar( $r_pieces ) ) {
+					$scalars[] = $r_pieces;
+				}
+			}
 		}
 
-		$keys[ $old_key_pos ] = $new_key;
-
-		return array_combine( $keys, array_values( $input ) );
+		return implode( $glue, array_filter( $scalars, 'strlen' ) );
 	}
 
 	/**
@@ -125,7 +102,13 @@ class Arrays {
 	 * @return array Indented Array
 	 * @since 1.0
 	 */
-	public function indent( $array, $parentId = 0, $parentKey = 'post_parent', $selfKey = 'ID', $childrenKey = 'children' ) {
+	public function indent(
+		$array,
+		$parentId = 0,
+		$parentKey = 'post_parent',
+		$selfKey = 'ID',
+		$childrenKey = 'children'
+	) {
 		$indent = [];
 
 		$i = 0;
@@ -208,6 +191,27 @@ class Arrays {
 		_deprecated_function( __METHOD__, '5.7.1' );
 
 		return '';
+	}
+
+	/**
+	 * Replace a single key in an associative array
+	 *
+	 * @param array      $input   Input array.
+	 * @param int|string $old_key Key to replace.
+	 * @param int|string $new_key Key to replace $old_key with
+	 *
+	 * @return array
+	 * @since 2.2.7
+	 */
+	public function key_replace( $input, $old_key, $new_key ) {
+		$keys = array_keys( $input );
+		$old_key_pos = array_search( $old_key, $keys );
+		if ( $old_key_pos === false ) {
+			return $input;
+		}
+		$keys[ $old_key_pos ] = $new_key;
+
+		return array_combine( $keys, array_values( $input ) );
 	}
 
 }

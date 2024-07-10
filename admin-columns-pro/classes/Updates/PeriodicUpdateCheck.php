@@ -3,11 +3,11 @@
 namespace ACP\Updates;
 
 use AC\Asset;
-use AC\Registrable;
+use AC\Registerable;
 use ACP\Asset\Script\PluginUpdatesCheck;
 use ACP\Transient\UpdateCheckTransient;
 
-class PeriodicUpdateCheck implements Registrable {
+class PeriodicUpdateCheck implements Registerable {
 
 	/**
 	 * @var Asset\Location\Absolute
@@ -24,7 +24,8 @@ class PeriodicUpdateCheck implements Registrable {
 		$this->cache = $cache;
 	}
 
-	public function register() {
+	public function register(): void
+    {
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_scripts' ] );
 	}
 

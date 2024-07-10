@@ -1,57 +1,60 @@
 <?php
 
+declare(strict_types=1);
+
 namespace ACP\Sorting\Model\Post;
 
-use ACP\Sorting\AbstractModel;
+use ACP\Query\Bindings;
+use ACP\Sorting\Model\QueryBindings;
+use ACP\Sorting\Model\SqlOrderByFactory;
+use ACP\Sorting\Type\Order;
 
-class LinkCount extends AbstractModel {
+class LinkCount implements QueryBindings
+{
 
-	/**
-	 * @var array
-	 */
-	private $domains;
+    private $domains;
 
-	public function __construct( array $domains ) {
-		parent::__construct();
+    public function __construct(array $domains)
+    {
+        $this->domains = $domains;
+    }
 
-		$this->domains = $domains;
-	}
+    public function create_query_bindings(Order $order): Bindings
+    {
+        return (new Bindings())->order_by(
+            SqlOrderByFactory::create(
+                $this->get_sql_field(),
+                (string)$order,
+                [
+                    'esc_sql' => false,
+                    'empty_values' => [0],
+                ]
+            )
+        );
+    }
 
-	public function get_sorting_vars() {
-		add_filter( 'posts_clauses', [ $this, 'sorting_clauses_callback' ] );
+    private function get_sql_field(): string
+    {
+        $domains = array_map([$this, 'sql_prefix_with_href'], $this->domains);
+        $field = implode(' + ', array_map([$this, 'sql_replace'], $domains));
 
-		return [
-			'suppress_filters' => false,
-		];
-	}
+        return sprintf('ROUND( %s )', $field);
+    }
 
-	private function sql_replace( $string ) {
-		global $wpdb;
+    private function sql_replace(string $string): string
+    {
+        global $wpdb;
 
-		$sql = $wpdb->prepare( "( LENGTH( $wpdb->posts.post_content ) - LENGTH( REPLACE ( $wpdb->posts.post_content, %s, '' ) ) ) / LENGTH( %s )", $string, $string );
+        return $wpdb->prepare(
+            "( LENGTH( $wpdb->posts.post_content ) - LENGTH( REPLACE ( $wpdb->posts.post_content, %s, '' ) ) ) / LENGTH( %s )",
+            $string,
+            $string
+        );
+    }
 
-		return $sql;
-	}
-
-	private function sql_prefix_with_href( $url ) {
-		return sprintf( 'href="%s', $url );
-	}
-
-	public function sorting_clauses_callback( $clauses ) {
-		global $wpdb;
-
-		$domains = $this->domains;
-		$domains = array_map( [ $this, 'sql_prefix_with_href' ], $domains );
-
-		$sql = implode( ' + ', array_map( [ $this, 'sql_replace' ], $domains ) );
-
-		$clauses['fields'] .= ", ROUND ( $sql ) AS acsort_link_count";
-
-		$clauses['orderby'] = sprintf( "acsort_link_count %s, $wpdb->posts.post_date", $this->get_order() );
-
-		remove_filter( 'posts_clauses', [ $this, __FUNCTION__ ] );
-
-		return $clauses;
-	}
+    private function sql_prefix_with_href(string $url): string
+    {
+        return sprintf('href="%s', esc_sql($url));
+    }
 
 }

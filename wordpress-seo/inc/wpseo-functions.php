@@ -182,21 +182,6 @@ function wpseo_wpml_config( $config ) {
 
 add_filter( 'icl_wpml_config_array', 'wpseo_wpml_config' );
 
-/**
- * Yoast SEO breadcrumb shortcode.
- * [wpseo_breadcrumb]
- *
- * @deprecated 14.0
- * @codeCoverageIgnore
- *
- * @return string
- */
-function wpseo_shortcode_yoast_breadcrumb() {
-	_deprecated_function( __FUNCTION__, 'WPSEO 14.0' );
-
-	return '';
-}
-
 if ( ! function_exists( 'ctype_digit' ) ) {
 	/**
 	 * Emulate PHP native ctype_digit() function for when the ctype extension would be disabled *sigh*.
@@ -225,6 +210,8 @@ if ( ! function_exists( 'ctype_digit' ) ) {
  * @param string $new_term_id      New term id of the taxonomy term that was splitted.
  * @param string $term_taxonomy_id Term taxonomy id for the taxonomy that was affected.
  * @param string $taxonomy         The taxonomy that the taxonomy term was splitted for.
+ *
+ * @return void
  */
 function wpseo_split_shared_term( $old_term_id, $new_term_id, $term_taxonomy_id, $taxonomy ) {
 	$tax_meta = get_option( 'wpseo_taxonomy_meta', [] );

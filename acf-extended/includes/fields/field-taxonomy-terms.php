@@ -228,8 +228,17 @@ class acfe_field_taxonomy_terms extends acf_field{
      */
     function ajax_query(){
         
+        $nonce = acf_request_arg('nonce', '');
+        $key   = acf_request_arg('field_key', '');
+        
+        // Back-compat for field settings.
+        if(!acf_is_field_key($key)){
+            $nonce = '';
+            $key   = '';
+        }
+        
         // validate
-        if(!acf_verify_ajax()){
+        if(!acf_verify_ajax($nonce, $key)){
             die();
         }
         
@@ -932,7 +941,7 @@ class acfe_field_taxonomy_terms extends acf_field{
         }
     
         // bail early front-end form
-        if(acfe_starts_with($post_id, 'acfe_form-')){
+        if(acfe_starts_with($post_id, 'acfe_form')){
             return $value;
         }
         
@@ -1008,7 +1017,7 @@ class acfe_field_taxonomy_terms extends acf_field{
         }
     
         // bail early front-end form
-        if(acfe_starts_with($post_id, 'acfe_form-')){
+        if(acfe_starts_with($post_id, 'acfe_form')){
             return $value;
         }
         
@@ -1234,7 +1243,7 @@ class acfe_field_taxonomy_terms extends acf_field{
             
             $terms = $all_terms;
             
-            // Filter allowed terms
+        // Filter allowed terms
         }else{
             
             // Add term level
@@ -1460,6 +1469,28 @@ class acfe_field_taxonomy_terms extends acf_field{
         $field['search_placeholder'] = acf_translate($field['search_placeholder']);
         
         return $field;
+        
+    }
+    
+    
+    /**
+     * get_rest_schema
+     *
+     * @param $field
+     *
+     * @return array
+     */
+    function get_rest_schema(array $field){
+        
+        $schema = array(
+            'type'     => array('string', 'array', 'null'),
+            'required' => isset($field['required']) && $field['required'],
+            'items'    => array(
+                'type' => 'string',
+            ),
+        );
+        
+        return $schema;
         
     }
 

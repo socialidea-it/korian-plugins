@@ -18,16 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * @since 1.7.0
  */
-class OMAPI_WooCommerce {
-
-	/**
-	 * Holds the class object.
-	 *
-	 * @since 1.7.0
-	 *
-	 * @var object
-	 */
-	public static $instance;
+class OMAPI_WooCommerce extends OMAPI_Integrations_Base {
 
 	/**
 	 * Path to the file.
@@ -37,15 +28,6 @@ class OMAPI_WooCommerce {
 	 * @var string
 	 */
 	public $file = __FILE__;
-
-	/**
-	 * Holds the base class object.
-	 *
-	 * @since 1.7.0
-	 *
-	 * @var object
-	 */
-	public $base;
 
 	/**
 	 * The minimum WooCommerce version required.
@@ -75,14 +57,26 @@ class OMAPI_WooCommerce {
 	public $save;
 
 	/**
+	 * The OMAPI_EasyDigitalDownloads_RestApi instance.
+	 *
+	 * @since 2.13.0
+	 *
+	 * @var null|OMAPI_EasyDigitalDownloads_RestApi
+	 */
+	public $rest = null;
+
+	/**
 	 * Primary class constructor.
 	 *
 	 * @since 1.7.0
 	 */
 	public function __construct() {
+		parent::__construct();
 
 		// Set our object.
-		$this->set();
+		$this->save = new OMAPI_WooCommerce_Save( $this );
+
+		add_action( 'optin_monster_api_rest_register_routes', array( $this, 'maybe_init_rest_routes' ) );
 
 		add_action( 'admin_enqueue_scripts', array( $this, 'handle_enqueuing_assets' ) );
 
@@ -95,17 +89,6 @@ class OMAPI_WooCommerce {
 		// Revenue attribution support.
 		add_action( 'woocommerce_thankyou', array( $this, 'maybe_store_revenue_attribution' ) );
 		add_action( 'woocommerce_order_status_changed', array( $this, 'maybe_store_revenue_attribution_on_order_status_change' ), 10, 3 );
-	}
-
-	/**
-	 * Sets our object instance and base class instance.
-	 *
-	 * @since 1.7.0
-	 */
-	public function set() {
-		self::$instance = $this;
-		$this->base     = OMAPI::get_instance();
-		$this->save     = new OMAPI_WooCommerce_Save();
 	}
 
 	/**
@@ -207,9 +190,7 @@ class OMAPI_WooCommerce {
 		}
 
 		$data['woocommerce'] = self::version();
-		$data['restUrl']     = esc_url_raw( get_rest_url() );
-		$data['homeUrl']     = esc_url_raw( home_url() );
-		$data['adminUrl']    = esc_url_raw( get_admin_url() );
+		$data                = array_merge( $data, OMAPI_Api::get_url_args() );
 
 		// Get the OptinMonster API credentials.
 		$creds = $this->get_request_api_credentials();
@@ -413,7 +394,7 @@ class OMAPI_WooCommerce {
 		}
 
 		// Get current site details.
-		$site = OMAPI_Utils::parse_url( site_url() );
+		$site = wp_parse_url( site_url() );
 		$host = isset( $site['host'] ) ? $site['host'] : '';
 
 		// Get any options we have stored.
@@ -481,36 +462,6 @@ class OMAPI_WooCommerce {
 	 */
 	public static function version() {
 		return defined( 'WC_VERSION' ) ? WC_VERSION : '0.0.0';
-	}
-
-	/**
-	 * Determines if the passed version string passes the operator compare
-	 * against the currently installed version of WooCommerce.
-	 *
-	 * Defaults to checking if the current WooCommerce version is greater than
-	 * the passed version.
-	 *
-	 * @since 1.9.0
-	 *
-	 * @param string $version  The version to check.
-	 * @param string $operator The operator to use for comparison.
-	 *
-	 * @return string
-	 */
-	public static function version_compare( $version = '', $operator = '>=' ) {
-		return version_compare( self::version(), $version, $operator );
-	}
-
-	/**
-	 * Determines if the current WooCommerce version meets the minimum version
-	 * requirement.
-	 *
-	 * @since 1.9.0
-	 *
-	 * @return boolean
-	 */
-	public static function is_minimum_version() {
-		return self::version_compare( self::MINIMUM_VERSION );
 	}
 
 	/**
@@ -658,20 +609,20 @@ class OMAPI_WooCommerce {
 	 * @return void
 	 */
 	public function maybe_store_revenue_attribution( $order_id = 0, $force = false ) {
+		// Grab the order. If we can't, return early.
+		$order = OMAPI_WooCommerce_Order::get( $order_id );
+		if ( ! $order->is() ) {
+			return;
+		}
+
 		// If we have already stored revenue attribution data before, return early.
-		$stored = get_post_meta( $order_id, '_om_revenue_attribution_complete', true );
+		$stored = $order->get_meta( '_om_revenue_attribution_complete' );
 		if ( $stored ) {
 			return;
 		}
 
-		// Grab the order. If we can't, return early.
-		$order = wc_get_order( $order_id );
-		if ( ! $order ) {
-			return;
-		}
-
 		// Grab some necessary data to send.
-		$data_on_order = get_post_meta( $order_id, '_om_revenue_attribution_data', true );
+		$data_on_order = $order->get_meta( '_om_revenue_attribution_data', true, 'edit' );
 		$data          = wp_parse_args(
 			array(
 				'transaction_id' => absint( $order_id ),
@@ -686,7 +637,7 @@ class OMAPI_WooCommerce {
 		// instances, we need to store the data to be processed
 		// at a later time.
 		if ( ! $order->has_status( 'completed' ) && ! $force ) {
-			update_post_meta( $order_id, '_om_revenue_attribution_data', $data );
+			$order->update_meta_data( '_om_revenue_attribution_data', $data );
 			return;
 		}
 
@@ -698,7 +649,7 @@ class OMAPI_WooCommerce {
 		}
 
 		// Update the payment meta for storing revenue attribution data.
-		update_post_meta( $order_id, '_om_revenue_attribution_complete', time() );
+		$order->update_meta_data( '_om_revenue_attribution_complete', time() );
 	}
 
 	/**
@@ -711,8 +662,12 @@ class OMAPI_WooCommerce {
 	 * @param string $new_status The new order status.
 	 *
 	 * @return void
+	 *
+	 * phpcs:disable Generic.CodeAnalysis.UnusedFunctionParameter.FoundInExtendedClassBeforeLastUsed
 	 */
 	public function maybe_store_revenue_attribution_on_order_status_change( $order_id, $old_status, $new_status ) {
+		// phpcs:enable Generic.CodeAnalysis.UnusedFunctionParameter.FoundInExtendedClassBeforeLastUsed
+
 		// If we don't have the proper new status, return early.
 		if ( 'completed' !== $new_status ) {
 			return;
@@ -743,6 +698,9 @@ class OMAPI_WooCommerce {
 		if ( ! self::is_minimum_version() ) {
 			return array();
 		}
+
+		// Initialize the cart.
+		wc_load_cart();
 
 		// Bail if we don't have a cart object.
 		if ( ! isset( WC()->cart ) || '' === WC()->cart ) {
@@ -782,7 +740,7 @@ class OMAPI_WooCommerce {
 			$cart['cart_items'][ $key ] = array_merge( $item, $item_details );
 		}
 
-		// Save for later use if necessary
+		// Save for later use if necessary.
 		$this->cart = $cart;
 
 		// Send back a response.
@@ -799,4 +757,34 @@ class OMAPI_WooCommerce {
 	public static function is_active() {
 		return class_exists( 'WooCommerce', true );
 	}
+
+	/**
+	 * Initiate our REST routes for WooCommerce if WooCommerce active.
+	 *
+	 * @since 2.13.0
+	 *
+	 * @return void
+	 */
+	public function maybe_init_rest_routes() {
+		if ( self::is_active() ) {
+			$this->rest = new OMAPI_WooCommerce_RestApi( $this->save );
+		}
+	}
+
+	/**
+	 * Declare compatibility with WooCommerce HPOS
+	 *
+	 * @see https://github.com/woocommerce/woocommerce/wiki/High-Performance-Order-Storage-Upgrade-Recipe-Book#declaring-extension-incompatibility
+	 *
+	 * @since 2.13.8
+	 *
+	 * @return void
+	 */
+	public static function declare_hpos_compat() {
+		if ( class_exists( '\\Automattic\\WooCommerce\\Utilities\\FeaturesUtil' ) ) {
+			$file = OMAPI::get_instance()->file;
+			\Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'custom_order_tables', $file, true );
+		}
+	}
+
 }

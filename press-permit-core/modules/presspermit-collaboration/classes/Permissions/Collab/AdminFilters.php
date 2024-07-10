@@ -12,6 +12,7 @@ class AdminFilters
         add_action('presspermit_init', [$this, 'actDisableForumPatternRoles']);
 
         add_filter('presspermit_enabled_taxonomies', [$this, 'fltGetEnabledTaxonomies'], 10, 2);
+        add_filter('presspermit_enabled_taxonomies_by_key', [$this, 'fltGetEnabledTaxonomiesByKey'], 10, 2);
         add_filter('wp_dropdown_pages', [$this, 'fltDropdownPages']);
 
         add_filter('pre_post_parent', [$this, 'fltPageParent'], 50, 1);
@@ -43,9 +44,11 @@ class AdminFilters
 
         // Track autodrafts by postmeta in case WP sets their post_status to draft
         add_action('save_post', [$this, 'actSavePost'], 10, 3);
+
         add_filter('wp_insert_post_empty_content', [$this, 'fltLogInsertPost'], 10, 2);
 
         add_action('save_post', [$this, 'actUnloadCurrentUserExceptions']);
+
         add_action('created_term', [$this, 'actUnloadCurrentUserExceptions']);
 
         add_filter('editable_roles', [$this, 'fltEditableRoles'], 99);
@@ -58,13 +61,16 @@ class AdminFilters
 
     public function actNavMenuQueryArgs($query_obj) {
         if (did_action('wp_ajax_menu-quick-search')) {
+            // @todo: confirm this Nav Menu Editor workaround is still needed
+
+            // phpcs:ignore WordPressVIPMinimum.Hooks.PreGetPosts.PreGetPosts
             $query_obj->query_vars['post_status'] = '';
         }
     }
 
     // If Pages metabox results are paged, prevent custom Front Page and Privacy Policy from being forced to the top of every page
     public function fltEditNavMenusIgnoreImportantPages($option_val) {
-        if (did_action('wp_ajax_menu-get-metabox') && (presspermit_REQUEST_int('paged') > 1)) {
+        if (did_action('wp_ajax_menu-get-metabox') && (PWP::REQUEST_int('paged') > 1)) {
             $option_val = 0;
         }
 
@@ -81,14 +87,16 @@ class AdminFilters
             update_post_meta($post_id, '_pp_is_autodraft', true);
 
         } elseif (!$update) {
-            // For configurations that limit access by term selection, need to default to an allowed term
-            if (!presspermit()->isAdministrator()) {
-                require_once(PRESSPERMIT_COLLAB_CLASSPATH . '/PostTermsSave.php');
-        
-                foreach(get_object_taxonomies($post->post_type) as $taxonomy) {
-                    if (!$terms = wp_get_object_terms($post->ID, $taxonomy, ['fields' => 'ids'])) {
-                        if ($terms = PostTermsSave::fltPreObjectTerms($terms, $taxonomy)) {
-                            wp_set_post_terms($post->ID, $terms, $taxonomy);
+            if ((PWP::isBlockEditorActive() && !defined('PRESSPERMIT_LIMIT_SAVE_POST_TERM_ASSIGNMENT')) || defined('PRESSPERMIT_LEGACY_SAVE_POST_TERM_ASSIGNMENT')) {
+                // For configurations that limit access by term selection, need to default to an allowed term
+                if (!presspermit()->isAdministrator()) {
+                    require_once(PRESSPERMIT_COLLAB_CLASSPATH . '/PostTermsSave.php');
+            
+                    foreach(get_object_taxonomies($post->post_type) as $taxonomy) {
+                        if (!$terms = wp_get_object_terms($post->ID, $taxonomy, ['fields' => 'ids'])) {
+                            if ($terms = PostTermsSave::fltPreObjectTerms($terms, $taxonomy)) {
+                                wp_set_post_terms($post->ID, $terms, $taxonomy);
+                            }
                         }
                     }
                 }
@@ -114,12 +122,18 @@ class AdminFilters
         );
     }
 
-    function fltGetEnabledTaxonomies($taxonomies, $args)
+    function fltGetEnabledTaxonomies($taxonomies, $args = [])
     {
-        if (empty($args['object_type']) || ('nav_menu_item' == $args['object_type']))
+        if (is_admin() && (empty($args['object_type']) || ('nav_menu_item' == $args['object_type']))) {
             $taxonomies['nav_menu'] = 'nav_menu';
+        }
 
         return $taxonomies;
+    }
+
+    function fltGetEnabledTaxonomiesByKey($taxonomies, $args = []) {
+        $forced_taxonomies = $this->fltGetEnabledTaxonomies(array_keys($taxonomies), $args);
+        return array_merge($taxonomies, $forced_taxonomies);
     }
 
     function fltAddException($exception)
@@ -194,8 +208,16 @@ class AdminFilters
             $taxonomy = $matches[1];
 
             if ($tx_obj = get_taxonomy($taxonomy)) {
+                if ('nav_menu' == $taxonomy) {  // @todo: use labels_pp property?
+                    if (in_array(get_locale(), ['en_EN', 'en_US'])) {
+                        $tx_obj->labels->singular_name = __('Nav Menu (Legacy)', 'press-permit-core');
+                    } else {
+                        $tx_obj->labels->singular_name .= ' (' . __('Legacy', 'press-permit-core') . ')';
+                    }
+                }
+
                 $role_title = sprintf(esc_html__('%s Manager', 'press-permit-core'), $tx_obj->labels->singular_name);
-        	}
+            }
         }
 
         return $role_title;
@@ -258,19 +280,27 @@ class AdminFilters
     {
         if ((defined('DOING_AUTOSAVE') && DOING_AUTOSAVE)
         || !presspermit()->filteringEnabled() || ('revision' == PWP::findPostType()) || did_action('pp_disable_page_parent_filter') || ($this->inserting_post)
+        || (
+            defined('ELEMENTOR_VERSION') && !empty($_REQUEST['actions'])                                     // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.NonceVerification.Recommended
+            && strpos($_REQUEST['actions'], '"action\":\"save_builder\",\"data\":{\"status\":\"autosave\"')  // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+        )
         ) {
             return $parent_id;
         }
 
         // Avoid preview failure with ACF active
-        if (presspermit_is_REQUEST('wp-preview', 'dopreview') 
-        && presspermit_is_REQUEST('action', 'editpost')
-        && presspermit_is_REQUEST('post_ID', $parent_id)
+        if (PWP::is_REQUEST('wp-preview', 'dopreview') 
+        && PWP::is_REQUEST('action', 'editpost')
+        && PWP::is_REQUEST('post_ID', $parent_id)
         ) {
             return $parent_id;
         }
 
-        if (defined('DOING_AJAX') && DOING_AJAX && !presspermit_empty_REQUEST('action') && (false !== strpos(presspermit_REQUEST_key('action'), 'woocommerce_'))) {
+        if (did_action('wp_ajax_save_attachment')) {
+            return $parent_id;
+        }
+
+        if (defined('DOING_AJAX') && DOING_AJAX && !PWP::empty_REQUEST('action') && PWP::REQUEST_key_match('action', 'woocommerce_', ['match_type' => 'contains'])) {
 			return $parent_id;
 		}
 
@@ -283,7 +313,7 @@ class AdminFilters
         && (
             (isset($_SERVER['SCRIPT_NAME']) && false !== strpos(sanitize_text_field($_SERVER['SCRIPT_NAME']), 'async-upload.php'))
             || ('attachment' == PWP::findPostType())
-            || (isset($_SERVER['SCRIPT_NAME']) && false !== strpos(sanitize_text_field($_SERVER['SCRIPT_NAME']), 'admin-ajax.php') && presspermit_is_REQUEST('action', ['save-attachment', 'save-attachment-compat']))
+            || (isset($_SERVER['SCRIPT_NAME']) && false !== strpos(sanitize_text_field($_SERVER['SCRIPT_NAME']), 'admin-ajax.php') && PWP::is_REQUEST('action', ['save-attachment', 'save-attachment-compat']))
             )
         ) {
             if (current_user_can('edit_post', $orig_parent_id)) {
@@ -297,8 +327,9 @@ class AdminFilters
     // filter page dropdown contents for Page Parent controls; leave others alone
     function fltDropdownPages($orig_options_html)
     {
-        if (presspermit()->isUserUnfiltered() || (!strpos($orig_options_html, 'parent_id') && !strpos($orig_options_html, 'post_parent')))
+        if (presspermit()->isUserUnfiltered() || (!empty($orig_options_html) && (!strpos($orig_options_html, 'parent_id') && !strpos($orig_options_html, 'post_parent')))) {
             return $orig_options_html;
+        }
 
         global $pagenow;
 

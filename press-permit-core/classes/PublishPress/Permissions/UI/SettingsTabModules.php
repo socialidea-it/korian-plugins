@@ -6,8 +6,6 @@ use PublishPress\Permissions\Factory;
 
 class SettingsTabModules
 {
-    const LEGACY_VERSION = '2.6.3';
-
     public function __construct()
     {
         add_filter('presspermit_option_tabs', [$this, 'optionTabs'], 0);
@@ -27,7 +25,7 @@ class SettingsTabModules
     public function sectionCaptions($sections)
     {
         $new = [
-            'modules' => '', //esc_html__('Modules', 'press-permit-core'),
+            'modules' => '',
             'help' => PWP::__wp('Help'),
         ];
 

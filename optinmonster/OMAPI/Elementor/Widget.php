@@ -39,6 +39,28 @@ class OMAPI_Elementor_Widget extends Widget_Base {
 
 		// Load the base class object.
 		$this->base = OMAPI::get_instance();
+
+		/*
+		 * Increased priority to get around: https://github.com/elementor/elementor/issues/19709
+		 */
+		add_action( 'wp_enqueue_scripts', array( $this, 'register_js' ), 999 );
+	}
+
+	/**
+	 * Register widget JS.
+	 *
+	 * @since 2.16.2
+	 */
+	public function register_js() {
+		$script_id = $this->base->plugin_slug . '-elementor';
+		wp_register_script(
+			$script_id,
+			$this->base->url . 'assets/dist/js/elementor.min.js',
+			array( 'jquery' ),
+			$this->base->asset_version(),
+			true
+		);
+		OMAPI_Utils::add_inline_script( $script_id, 'OMAPI', $this->base->blocks->get_data_for_js() );
 	}
 
 	/**
@@ -134,21 +156,9 @@ class OMAPI_Elementor_Widget extends Widget_Base {
 	 * @return array
 	 */
 	public function get_script_depends() {
-		if ( ! Plugin::instance()->preview->is_preview_mode() ) {
-			return array();
-		}
-
-		$script_id = $this->base->plugin_slug . '-elementor';
-		wp_register_script(
-			$script_id,
-			$this->base->url . 'assets/dist/js/elementor.min.js',
-			array( 'elementor-frontend', 'jquery' ),
-			$this->base->asset_version(),
-			true
-		);
-		OMAPI_Utils::add_inline_script( $script_id, 'OMAPI', $this->base->blocks->get_data_for_js() );
-
-		return array( $script_id );
+		return Plugin::instance()->preview->is_preview_mode()
+			? array( $this->base->plugin_slug . '-elementor' )
+			: array();
 	}
 
 	/**
@@ -181,7 +191,7 @@ class OMAPI_Elementor_Widget extends Widget_Base {
 	 *
 	 * @since 2.2.0
 	 */
-	protected function _register_controls() { // phpcs:ignore PSR2.Methods.MethodDeclaration.Underscore
+	protected function register_controls() {
 		$this->start_controls_section(
 			'section_om_campaign',
 			array(
@@ -312,12 +322,13 @@ class OMAPI_Elementor_Widget extends Widget_Base {
 		$this->add_control(
 			'followrules',
 			array(
-				'label'        => esc_html__( 'Use Output Settings', 'optin-monster-api' ),
-				'type'         => Controls_Manager::SWITCHER,
-				'label_on'     => esc_html__( 'Yes', 'optin-monster-api' ),
-				'label_off'    => esc_html__( 'No', 'optin-monster-api' ),
-				'return_value' => 'yes',
-				'condition'    => array(
+				'label'              => esc_html__( 'Use Output Settings', 'optin-monster-api' ),
+				'type'               => Controls_Manager::SWITCHER,
+				'frontend_available' => true,
+				'label_on'           => esc_html__( 'Yes', 'optin-monster-api' ),
+				'label_off'          => esc_html__( 'No', 'optin-monster-api' ),
+				'return_value'       => 'yes',
+				'condition'          => array(
 					'campaign_id!' => '0',
 				),
 			)
@@ -529,9 +540,9 @@ class OMAPI_Elementor_Widget extends Widget_Base {
 		// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped
 		printf(
 			$this->get_render_format(),
-			'{{{ settings.campaign_id }}}',
+			'{{{ settings.campaign_id.replace(/[^a-zA-Z0-9]/g, "") }}}',
 			'<# if ( ! settings.campaign_id ) { #>' . $this->get_campaign_select_html() . '<# } #>',
-			'<# if ( settings.campaign_id ) { #>' . $this->get_campaign_holder( '{{{ settings.campaign_id }}}' ) . '<# } #>'
+			'<# if ( settings.campaign_id ) { #>' . $this->get_campaign_holder( '{{{ settings.campaign_id.replace(/[^a-zA-Z0-9]/g, "") }}}' ) . '<# } #>'
 		);
 		// phpcs:enable
 	}
@@ -567,7 +578,7 @@ class OMAPI_Elementor_Widget extends Widget_Base {
 	protected function get_shortcode_output() {
 		return sprintf(
 			'[optin-monster slug="%1$s"%2$s]',
-			sanitize_text_field( $this->get_settings_for_display( 'campaign_id' ) ),
+			esc_attr( $this->get_settings_for_display( 'campaign_id' ) ),
 			$this->get_settings_for_display( 'followrules' ) === 'yes' ? ' followrules="true"' : ''
 		);
 	}

@@ -6,94 +6,73 @@ use AC\Ajax;
 use AC\Capabilities;
 use AC\Integration;
 use AC\Message\Notice\Dismissible;
-use AC\PluginInformation;
 use AC\Preferences;
-use AC\Registrable;
+use AC\Registerable;
 use AC\Screen;
-use AC\Type\Url\Editor;
-use Exception;
 
 final class AddonAvailable
-	implements Registrable {
+    implements Registerable
+{
 
-	/** @var Integration */
-	private $integration;
+    private $integration;
 
-	/**
-	 * @param Integration $integration
-	 */
-	public function __construct( Integration $integration ) {
-		$this->integration = $integration;
-	}
+    public function __construct(Integration $integration)
+    {
+        $this->integration = $integration;
+    }
 
-	/**
-	 * @throws Exception
-	 */
-	public function register() {
-		add_action( 'ac/screen', [ $this, 'display' ] );
+    public function register(): void
+    {
+        add_action('ac/screen', [$this, 'display']);
 
-		$this->get_ajax_handler()->register();
-	}
+        $this->get_ajax_handler()->register();
+    }
 
-	/**
-	 * @return Ajax\Handler
-	 */
-	private function get_ajax_handler() {
-		$handler = new Ajax\Handler();
-		$handler
-			->set_action( 'ac_dismiss_notice_addon_' . $this->integration->get_slug() )
-			->set_callback( [ $this, 'ajax_dismiss_notice' ] );
+    private function get_ajax_handler(): Ajax\Handler
+    {
+        $handler = new Ajax\Handler();
+        $handler
+            ->set_action('ac_dismiss_notice_addon_' . $this->integration->get_slug())
+            ->set_callback([$this, 'ajax_dismiss_notice']);
 
-		return $handler;
-	}
+        return $handler;
+    }
 
-	/**
-	 * @return Preferences\User
-	 */
-	private function get_preferences() {
-		return new Preferences\User( 'check-addon-available-' . $this->integration->get_slug() );
-	}
+    private function get_preferences(): Preferences\User
+    {
+        return new Preferences\User('check-addon-available-' . $this->integration->get_slug());
+    }
 
-	/**
-	 * Dismiss notice
-	 */
-	public function ajax_dismiss_notice() {
-		$this->get_ajax_handler()->verify_request();
-		$this->get_preferences()->set( 'dismiss-notice', true );
-	}
+    public function ajax_dismiss_notice(): void
+    {
+        $this->get_ajax_handler()->verify_request();
+        $this->get_preferences()->set('dismiss-notice', true);
+    }
 
-	/**
-	 * @param Screen $screen
-	 */
-	public function display( Screen $screen ) {
-		if ( ! current_user_can( Capabilities::MANAGE )
-		     || ! $this->integration->show_notice( $screen )
-		     || ! $this->integration->is_plugin_active()
-		     || $this->get_preferences()->get( 'dismiss-notice' )
-		) {
-			return;
-		}
+    public function display(Screen $screen): void
+    {
+        if (
+            ! current_user_can(Capabilities::MANAGE)
+            || ! $this->integration->show_notice($screen)
+            || $this->get_preferences()->get('dismiss-notice')
+        ) {
+            return;
+        }
 
-		$integration_info = new PluginInformation( $this->integration->get_basename() );
+        $support_text = sprintf(
+            __('Did you know Admin Columns Pro has full support for %s?', 'codepress-admin-columns'),
+            sprintf('<strong>%s</strong>', $this->integration->get_title())
+        );
 
-		if ( $integration_info->is_active() ) {
-			return;
-		}
+        $link = sprintf(
+            '<a href="%s">%s</a>',
+            $this->integration->get_url(),
+            __('Get Admin Columns Pro', 'codepress-admin-columns')
+        );
+        $message = sprintf('%s %s', $support_text, $link);
 
-		$addon_url = new Editor( 'addons' );
-
-		$message = sprintf(
-			__( 'Did you know Admin Columns Pro has an integration addon for %s? With the proper Admin Columns Pro license, you can download them from %s!', 'codepress-admin-columns' ),
-			sprintf( '<strong>%s</strong>', $this->integration->get_title() ),
-			sprintf(
-				'<a href="%s">%s</a>',
-				esc_url( $addon_url->get_url() ),
-				__( 'the addons page', 'codepress-admin-columns' )
-			)
-		);
-
-		$notice = new Dismissible( $message, $this->get_ajax_handler() );
-		$notice->register();
-	}
+        $notice = new Dismissible($message, $this->get_ajax_handler());
+        $notice->register();
+    }
 
 }

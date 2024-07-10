@@ -3,27 +3,35 @@
 namespace ACP\Sorting;
 
 use AC\Column;
-use ACP\Sorting\Model\Disabled;
+use ACP\Sorting\Model\QueryBindings;
 
-class ModelFactory {
+class ModelFactory
+{
 
-	/**
-	 * @param Column $column
-	 *
-	 * @return AbstractModel|null
-	 */
-	public function create( Column $column ) {
-		if ( ! $column instanceof Sortable ) {
-			return null;
-		}
+    public function create_model(Column $column): ?AbstractModel
+    {
+        if ( ! $column instanceof Sortable) {
+            return null;
+        }
 
-		$model = apply_filters( 'acp/sorting/model', $column->sorting(), $column );
+        $model = apply_filters('acp/sorting/model', $column->sorting(), $column);
 
-		if ( $model instanceof Disabled ) {
-			return null;
-		}
+        return $model instanceof AbstractModel
+            ? $model
+            : null;
+    }
 
-		return $model;
-	}
+    public function create_bindings(Column $column): ?QueryBindings
+    {
+        if ( ! $column instanceof Sortable) {
+            return null;
+        }
+
+        $model = apply_filters('acp/sorting/model', $column->sorting(), $column);
+
+        return $model instanceof QueryBindings
+            ? $model
+            : null;
+    }
 
 }

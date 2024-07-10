@@ -99,6 +99,10 @@ class PermissionsHooks
 
     public function loadFilters()
     {
+        if (!defined('PRESSPERMIT_NO_EARLY_CAPS_INIT')) {
+            add_action('init', function() {presspermit()->capDefs(['force' => true]);}, 5);
+        }
+
         add_action('set_current_user', [$this, 'actSetCurrentUser'], 99);
         add_action('init', [$this, 'actInit'], 50);
         add_action('wp_loaded', [presspermit(), 'refreshUserAllcaps'], 18);   // account for any type / condition caps adding by late registration
@@ -130,7 +134,7 @@ class PermissionsHooks
         require_once(PRESSPERMIT_CLASSPATH . '/Roles.php');
         presspermit()->role_defs = new Permissions\Roles();
 
-        if (defined('SSEO_VERSION')) {
+        if (defined('SSEO_VERSION') && function_exists('sseo_register_parameter')) {
             require_once(PRESSPERMIT_CLASSPATH . '/Compat/EyesOnly.php');
             new Permissions\Compat\EyesOnly();
         }
@@ -213,49 +217,99 @@ class PermissionsHooks
         }
         $done = true;
 
+        // @todo: determine cause of this condition
+        if (is_admin() && empty($this->admin_hooks)) {
+            static $busy;
+
+            if (empty($busy)) {
+                $this->loadFilters();
+            }
+
+            $busy = true;
+        }
+
         $pp = presspermit();
 
         // --- version check ---
-        $compare_version = PRESSPERMIT_VERSION;
-
-        $ver = get_option('presspermitpro_version');
-
-        if (!$ver || !defined('PRESSPERMIT_PRO_VERSION') ) {
-            	if ( ! $ver = get_option('presspermit_version') ) {
-                	$ver = get_option('pp_c_version');
-                }
-        } else {
-            $compare_version = PRESSPERMIT_PRO_VERSION;
+        if (!$ver = get_option('presspermit_version')) {
+            $ver = get_option('pp_c_version');
         }
 
-        if (!$ver || !is_array($ver) || empty($ver['db_version']) || version_compare(PRESSPERMIT_DB_VERSION, $ver['db_version'], '!=')) {
-            if (!$ver) {
-                require_once(PRESSPERMIT_CLASSPATH . '/PluginUpdated.php');
-                new Permissions\PluginUpdated('');
-            }
+        $updated = false;
 
+        $prev_core_version = ($ver && is_array($ver) && !empty($ver['version'])) ? $ver['version'] : '';
+
+        if (version_compare(PRESSPERMIT_VERSION, $prev_core_version, '!=')) {
+            require_once(PRESSPERMIT_CLASSPATH . '/PluginUpdated.php');
+            new Permissions\PluginUpdated($prev_core_version);
+
+            // Always store current PP Core version, even if loaded by Pro
             update_option('presspermit_version', ['version' => PRESSPERMIT_VERSION, 'db_version' => PRESSPERMIT_DB_VERSION]);
+            $updated = true;
 
-            if (defined('PRESSPERMIT_PRO_VERSION')) {
-                update_option('presspermitpro_version', ['version' => PRESSPERMIT_PRO_VERSION, 'db_version' => PRESSPERMIT_DB_VERSION]);
+            if ($ver && is_multisite() && !$pp->getOption('wp_role_sync')) {
+                Permissions\PluginUpdated::syncWordPressRoles();
             }
         }
 
-        if ($ver && !empty($ver['version'])) {
-            // These maintenance operations only apply when a previous version of PP was installed 
-            if (version_compare($compare_version, $ver['version'], '!=')) {
-                require_once(PRESSPERMIT_CLASSPATH . '/PluginUpdated.php');
-                new Permissions\PluginUpdated($ver['version']);
-                update_option('presspermit_version', ['version' => PRESSPERMIT_VERSION, 'db_version' => PRESSPERMIT_DB_VERSION]);
+        if (defined('PRESSPERMIT_PRO_VERSION')) {
+            $ver_pro = get_option('presspermitpro_version');
+            $prev_pro_version = ($ver_pro && is_array($ver_pro) && !empty($ver_pro['version'])) ? $ver_pro['version'] : '';
 
-                if (defined('PRESSPERMIT_PRO_VERSION')) {
-                    update_option('presspermitpro_version', ['version' => PRESSPERMIT_PRO_VERSION, 'db_version' => PRESSPERMIT_DB_VERSION]);
+            if (version_compare(PRESSPERMIT_PRO_VERSION, $prev_pro_version, '!=')) {
+                do_action('presspermit_pro_version_updated', $prev_pro_version);
+
+                update_option('presspermitpro_version', ['version' => PRESSPERMIT_PRO_VERSION, 'db_version' => PRESSPERMIT_DB_VERSION]);
+                $updated = true;
+            }
+        }
+
+        if (!empty($updated)) {
+            // Core and Pro intentionally share the same version history log, to capture the installation sequence of any Free or Pro package
+
+            if ($ver_history = get_option('ppperm_version_history')) {
+                $ver_history = (array) json_decode($ver_history);
+            } else {
+                // Initiate version history log with the last stored version (Pro or Free)
+                $ver_history = [];
+
+                if (defined('PRESSPERMIT_PRO_VERSION') && !empty($prev_pro_version)) {
+                    $new_entry = (object) ['version' => $prev_pro_version, 'date' => '', 'isPro' => true];
+                } 
+                
+                // In case last Pro version is an irrelevant old entry, also include last Core version if it's higher
+                if ($prev_core_version && (!defined('PRESSPERMIT_PRO_VERSION') || version_compare($prev_core_version, $prev_pro_version, '>'))) {
+                    $new_entry = (object) ['version' => $prev_core_version, 'date' => '', 'isPro' => false];
+                }
+
+                $last_entry = reset($ver_history);
+
+                if (!empty($new_entry) && ($last_entry != $new_entry)) {
+                    $ver_history []= $new_entry;
+                    $updated_log = true;
                 }
             }
 
-            if (is_multisite() && !$pp->getOption('wp_role_sync')) {
-                require_once(PRESSPERMIT_CLASSPATH . '/PluginUpdated.php');
-                Permissions\PluginUpdated::syncWordPressRoles();
+            // In the version history, log Core version changes only if they are installed directly by Free package
+            if (defined('PRESSPERMIT_PRO_VERSION')) {
+                $new_entry = (object) ['version' => PRESSPERMIT_PRO_VERSION, 'date' => gmdate('m/d/Y'), 'isPro' => true];
+            } else {
+                $new_entry = (object) ['version' => PRESSPERMIT_VERSION, 'date' => gmdate('m/d/Y'), 'isPro' => false];
+            }
+
+            if (count($ver_history) > 1000) {
+                $ver_history = [];
+            }
+
+            $last_entry = reset($ver_history);
+
+            if ($last_entry != $new_entry) {
+                $ver_history []= $new_entry;
+                $updated_log = true;
+            }
+
+            if (!empty($updated_log)) {
+                update_option('ppperm_version_history', wp_json_encode($ver_history));
             }
         }
         // --- end version check ---
@@ -350,7 +404,7 @@ class PermissionsHooks
             $this->filtering_enabled = false;
         }
 
-        if (!$this->direct_file_access = presspermit_is_REQUEST('pp_rewrite') && !presspermit_empty_REQUEST('attachment')) {
+        if (!$this->direct_file_access = PWP::is_REQUEST('pp_rewrite') && !PWP::empty_REQUEST('attachment')) {
             $this->addMaintenanceTriggers();
         }
 
@@ -360,7 +414,7 @@ class PermissionsHooks
         if (is_admin() && ('update.php' == $pagenow)) {
             // todo: review with EDD
 
-            if (!presspermit_is_REQUEST('action', 'presspermit-pro')) {
+            if (!PWP::is_REQUEST('action', 'presspermit-pro')) {
                 do_action('presspermit_init');
                 return;
             }
@@ -370,7 +424,7 @@ class PermissionsHooks
         $this->loadContentFilters();
 
         if (is_admin() && ('async-upload.php' != $pagenow) && !defined('XMLRPC_REQUEST') 
-        && (!defined('DOING_AJAX') || !DOING_AJAX || presspermit_is_REQUEST('action', ['menu-get-metabox', 'menu-quick-search']))
+        && (!defined('DOING_AJAX') || !DOING_AJAX || PWP::is_REQUEST('action', ['menu-get-metabox', 'menu-quick-search']))
         ) {
             // filters which are only needed for the wp-admin UI
             require_once(PRESSPERMIT_CLASSPATH . '/UI/Dashboard/DashboardFilters.php');
@@ -446,7 +500,7 @@ class PermissionsHooks
     private function loadContentFilters()
     {
         if (defined('DOING_AJAX') && DOING_AJAX 
-        && presspermit_is_REQUEST('action', ['woocommerce_load_variations', 'woocommerce_add_variation', 'woocommerce_remove_variations', 'woocommerce_save_variations'])
+        && PWP::is_REQUEST('action', ['woocommerce_load_variations', 'woocommerce_add_variation', 'woocommerce_remove_variations', 'woocommerce_save_variations'])
         ) {
 			return;
 		}
@@ -472,7 +526,7 @@ class PermissionsHooks
         if (($is_front && $front_filtering) 
         || !$is_unfiltered 
         || ('nav-menus.php' == $pagenow) 
-        || (defined('DOING_AJAX') && DOING_AJAX && presspermit_is_REQUEST('action', ['menu-get-metabox', 'menu-quick-search']))
+        || (defined('DOING_AJAX') && DOING_AJAX && PWP::is_REQUEST('action', ['menu-get-metabox', 'menu-quick-search']))
         ) {
             if (! $this->post_filters_loaded) { // since this could possibly fire on multiple 'set_current_user' calls, avoid redundancy
                 require_once(PRESSPERMIT_CLASSPATH . '/PostFilters.php');
@@ -510,8 +564,20 @@ class PermissionsHooks
         }
 
         if (($is_front && $front_filtering) || (!$is_unfiltered && (!defined('DOING_AUTOSAVE') || !DOING_AUTOSAVE))) {
-            require_once(PRESSPERMIT_CLASSPATH . '/TermFilters.php');
-            new Permissions\TermFilters();
+            // Work around unexplained issue with access to static methods of LibWP class failing if called before init action
+            if ((did_action('init') || defined('PRESSPERMIT_TERM_FILTERS_LEGACY_LOAD')) 
+            && !presspermit()->getOption('limit_front_end_term_filtering')
+            ) {
+                require_once(PRESSPERMIT_CLASSPATH . '/TermFilters.php');
+                new Permissions\TermFilters();
+            } else {
+                add_action('init',
+                    function() {
+                        require_once(PRESSPERMIT_CLASSPATH . '/TermFilters.php');
+                        new Permissions\TermFilters();
+                    }
+                );
+            }
         } elseif (is_admin() && $is_unfiltered) {
             require_once(PRESSPERMIT_CLASSPATH . '/TermFiltersAdministrator.php');  // for filtering of post count
             new Permissions\TermFiltersAdministrator();

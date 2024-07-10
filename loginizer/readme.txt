@@ -2,9 +2,9 @@
 Contributors: softaculous, loginizer, pagelayer
 Tags: security, access, admin, Loginizer, login, logs, ban ip, failed login, ip, whitelist ip, blacklist ip, failed attempts, lockouts, hack, authentication, login, security, rename login url, rename login, rename wp-admin, secure wp-admin, rename admin url, secure admin, brute force protection
 Requires at least: 3.0
-Tested up to: 6.1
+Tested up to: 6.5
 Requires PHP: 5.5
-Stable tag: 1.7.6
+Stable tag: 1.8.8
 License: LGPLv2.1
 License URI: http://www.gnu.org/licenses/lgpl-2.1.html
 
@@ -26,6 +26,10 @@ Free Features :
 * Whitelist IPs
 * Custom error messages on failed login.
 * Permission check for important files and folders.
+* Allow only Trusted IP.
+* Blocked Screen in place of the Login page.
+* Email Notification on successful login.
+* Let users login with LinkedIn
 
 = Get Support and Pro Features =
 
@@ -38,7 +42,7 @@ Pro Features :
 * Two Factor Auth via Email - On login, an email will be sent to the email address of that account with a temporary 6 digit code to complete the login.
 * Two Factor Auth via App - The user can configure the account with a 2FA App like Google Authenticator, Authy, etc.
 * Login Challenge Question - The user can setup a <i>Challenge Question and Answer</i> as an additional security layer. After Login, the user will need to answer the question to complete the login.
-* reCAPTCHA - Google's reCAPTCHA v3/v2 can be configured for the Login screen, Comments Section, Registration Form, etc. to prevent automated brute force attacks. Supports WooCommerce as well.
+* reCAPTCHA - Google's reCAPTCHA v3/v2, Cloudflare Turnstile, hCAPTCHA can be configured for the Login screen, Comments Section, Registration Form, etc. to prevent automated brute force attacks. Supports WooCommerce as well.
 * Rename Login Page - The Admin can rename the login URL (slug) to something different from wp-login.php to prevent automated brute force attacks.
 * Rename WP-Admin URL - The Admin area in WordPress is accessed via wp-admin. With loginizer you can change it to anything e.g. site-admin
 * CSRF Protection - This helps in preventing CSRF attacks as it updates the admin URL with a session string which makes it difficult and nearly impossible for the attacker to predict the URL.
@@ -50,6 +54,9 @@ Pro Features :
 * Change the Admin Username - The Admin can rename the admin username to something more difficult.
 * Auto Blacklist IPs - IPs will be auto blacklisted, if certain usernames saved by the Admin are used to login by malicious bots / users.
 * Disable Pingbacks - Simple way to disable PingBacks.
+* SSO - Single Sign-on, let any user access to your WordPress Dashboard without the need to share username or password.
+* Limit Concurrent Logins - It prevents user to login from different devices concurrently, you can define how many devices you want to allow, and how you want to restrict the user when concurrent limit is reached.
+* Social Login - Users can login or register with their Google, Github, Facebook, X (Twitter), Discord, Twitch, LinkedIn with support for WooCommerce.
 
 Features in Loginizer include:
 
@@ -77,6 +84,64 @@ That's it. You're done!
 3. Loginizer Brute Force Settings page
 
 == Changelog ==
+
+= 1.8.8 =
+* [Bug-Fix] Verison in one file was not updated, this has been fixed.
+
+= 1.8.7 =
+* [Feature] Social Login: Now you can let the users login through LinkedIn Login.
+* [Feature] Send Login Notification as HTML email.
+* [Pro Feature] Supports social login with Google, GitHub, Facebook, X(Formly Twitter) and more Login Providers.
+
+= 1.8.6 =
+* [Bug-Fix] There was an issue with Login Notification body and subject, it was adding \(slashes) if "(double-quotes) where being used. This has been fixed.
+* [Task] Removal of unwanted code.
+
+= 1.8.5 =
+* [Feature] Added Option to disable Login notification for whitelisted IPs.
+* [Improvement] We have added variables for custom subject in Login notification.
+* [Bug-Fix] Now the time shown in the Login Notification email, will respect the timezone set in the WordPress settings.
+* [Bug-Fix] Error notice when 2FA fails had some CSS issue which has been fixed.
+* [Task] We have remove unwanted code in reCAPTCHA.
+
+= 1.8.4 =
+* [Feature] Block Page, now instead of showing error on the Login page of user being blacklisted, you can just show a page with error, reducing the resource being used to show the error.
+* [Feature] Email notification on successful login and you can enforce this on your users too.
+* [Pro Feature] Added Cloudflare Turnstile, and hCaptcha.
+* [Task] Tested with WordPress 6.5.
+
+= 1.8.3 =
+* [Task] We have removed unwanted code.
+
+= 1.8.2 =
+* [Task] Tested on WordPress 6.4.
+* [Improvement] Now SSO can live for multiple Login attempts, default being 1 and maximum is 15 Login access.
+* [Imrpovement] Now SSO can live longer for upto 2 days.
+* [Bug-Fixes] A few Warning related to PHP 8.2 has been fixed
+
+= 1.8.1 =
+*[Bug-Fix] There was an issue while checking checksum, if the WordPress install was in en_US but the language was set to some other languages from the settings, then the checksum was comparing the checksums from the language selected in WordPress settings which is now always the language of the install, this has been fixed.
+
+= 1.8.0 =
+* [Feature][Pro] We have added Single Sign-on for you to create temporary login to share to let other login to your account without sharing password.
+* [Refactor] We have reduced the amount of code that was being loaded when a login attempt was made by around 150KB.
+* [Refactor] Screenshots of Loginizer were included in the plugin, we have shifted that to assets of WordPress.org, reducing the overall size of plugin by more than 100KB.
+
+= 1.7.9 =
+* [Bug-Fix] Users were getting PHP notice in init.php file that has been fixed.
+* [Bug-Fix] Math cookie has been set as secure now.
+* [Security] We were sanitizing an output in place of escaping it, that has been fixed [Reported by Erwan Le Rousseau from WPScan]
+
+= 1.7.8 =
+* [Task] Tested with WordPress 6.2
+* [Feature] [Pro] Limit Concurrent user login, you can either block login attempt or revoke when limit of concurrent user is reached.
+* [Feature] Login attempts stats chart on Loginizer Dashboard.
+
+= 1.7.7 =
+* [Feature] Ability to allow only Whitelisted IP's to be able to login with Trusted IP's.
+* [Feature] [Pro] Option to add custom redirect on 2FA Login based on user role.
+* [Bug-Fix] [Pro] User's were getting redirected to WP Admin when logging in from Checkout page in Passwordless and 2FA options that has been fixed.
+* [Bug-Fix] Some users were getting PHP Warnings that has been fixed.
 
 = 1.7.6 =
 * [Security] Minor security issues reported by patchstack have been fixed with in 24 hours of reporting.

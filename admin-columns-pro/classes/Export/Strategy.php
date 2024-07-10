@@ -1,305 +1,338 @@
 <?php
 
+declare(strict_types=1);
+
 namespace ACP\Export;
 
 use AC;
 use AC\Column;
+use AC\ColumnRepository;
 use AC\ListTable;
-use AC\ListTableFactory;
+use AC\Request;
 use ACP\Export\Asset\Script\Table;
+use ACP\Export\ColumnRepository\Filter\ExportableColumns;
+use ACP\Export\ColumnRepository\Filter\IncludeColumnNames;
+use ACP\Export\ColumnRepository\Sort\ColumnNames;
 
 /**
  * Base class for governing exporting for a list screen that is exportable. This class should be
  * extended, generally, per list screen. Furthermore, each instance of this class should be linked
  * to an Admin Columns list screen object
- * @since 1.0
  */
-abstract class Strategy {
+abstract class Strategy
+{
 
-	/**
-	 * Admin Columns list screen object this object is attached to
-	 * @since 1.0
-	 * @var ListScreen
-	 */
-	protected $list_screen;
+    /**
+     * @var ListScreen
+     */
+    protected $list_screen;
 
-	/**
-	 * @var ListTableFactory
-	 */
-	protected $list_table_factory;
+    /**
+     * @var ColumnRepository
+     */
+    private $column_repository;
 
-	/**
-	 * @var ExportableColumnFactory
-	 */
-	private $exportable_columns_factory;
+    /**
+     * @var Request
+     */
+    private $request;
 
-	/**
-	 * Perform all required actions for when an AJAX export is requested. The parent class (this
-	 * class) will perform the necessary validation, and the inheriting class should implement
-	 * the actual functionality for setting up the items to be exported. The parent class's (this
-	 * class) `export` method can then be used to actually export the items
-	 * @since 1.0
-	 */
-	abstract protected function ajax_export();
+    /**
+     * Perform all required actions for when an AJAX export is requested. The parent class (this
+     * class) will perform the necessary validation, and the inheriting class should implement
+     * the actual functionality for setting up the items to be exported. The parent class's (this
+     * class) `export` method can then be used to actually export the items
+     */
+    abstract protected function ajax_export(): void;
 
-	/**
-	 * @return ListTable|null
-	 */
-	protected function get_list_table() {
-		return $this->list_table_factory->create_from_globals();
-	}
+    abstract protected function get_list_table(): ?ListTable;
 
-	/**
-	 * Constructor
-	 *
-	 * @param AC\ListScreen $list_screen Associated Admin Columns list screen object
-	 *
-	 * @since 1.0
-	 */
-	public function __construct( AC\ListScreen $list_screen ) {
-		$this->list_screen = $list_screen;
-		$this->list_table_factory = new ListTableFactory();
-		$this->exportable_columns_factory = new ExportableColumnFactory( $list_screen );
-	}
+    public function __construct(AC\ListScreen $list_screen)
+    {
+        $this->list_screen = $list_screen;
+        $this->column_repository = new ColumnRepository($list_screen);
+        $this->request = new Request();
+    }
 
-	/**
-	 * Callback for when the list screen is loaded in Admin Columns, i.e., when it is active. Child
-	 * classes should implement this method for any setup-related functionality
-	 * @since 1.0
-	 */
-	public function attach() {
-		$this->maybe_ajax_export();
-	}
+    /**
+     * Callback for when the list screen is loaded in Admin Columns, i.e., when it is active. Child
+     * classes should implement this method for any setup-related functionality
+     * @since 1.0
+     */
+    public function attach(): void
+    {
+        $this->maybe_ajax_export();
+    }
 
-	/**
-	 * Check whether an AJAX export should be made, and validate the input data. Will call child's
-	 * `ajax_export` method to do the actual exporting
-	 * @since 1.0
-	 */
-	public function maybe_ajax_export() {
-		// Check whether the user requested an export
-		if ( 'acp_export_listscreen_export' !== filter_input( INPUT_GET, 'acp_export_action' ) ) {
-			return;
-		}
+    /**
+     * Check whether an AJAX export should be made, and validate the input data. Will call child's
+     * `ajax_export` method to do the actual exporting
+     * @since 1.0
+     */
+    public function maybe_ajax_export(): void
+    {
+        if ('acp_export_listscreen_export' !== $this->request->get('acp_export_action')) {
+            return;
+        }
 
-		if ( ! wp_verify_nonce( filter_input( INPUT_GET, '_wpnonce' ), Table::NONCE_ACTION ) ) {
-			return;
-		}
+        if ( ! wp_verify_nonce($this->request->get('acp_export_nonce'), Table::NONCE_ACTION)) {
+            return;
+        }
 
-		if ( $this->get_export_counter() === false ) {
-			wp_send_json_error( __( 'Invalid value supplied for export counter.', 'codepress-admin-columns' ) );
-		}
+        if ($this->get_export_counter() === null) {
+            wp_send_json_error(__('Invalid value supplied for export counter.', 'codepress-admin-columns'));
+        }
 
-		$this->ajax_export();
-	}
+        do_action('acp/export/before_batch');
 
-	/**
-	 * Get the counter value passed for the AJAX export
-	 * @return int|false Counter value, or false if there is no valid counter value
-	 * @since 1.0
-	 */
-	protected function get_export_counter() {
-		$counter = (int) filter_input( INPUT_GET, 'acp_export_counter', FILTER_SANITIZE_NUMBER_INT );
+        $this->ajax_export();
+    }
 
-		return $counter >= 0 ? $counter : false;
-	}
+    protected function get_export_counter(): ?int
+    {
+        $counter = (int)$this->request->filter('acp_export_counter', 0, FILTER_SANITIZE_NUMBER_INT);
 
-	/**
-	 * Get the Admin Columns list screen object associated with this object
-	 * @return AC\ListScreen Associated Admin Columns list screen object
-	 * @since 1.0
-	 */
-	public function get_list_screen() {
-		return $this->list_screen;
-	}
+        return $counter >= 0
+            ? $counter
+            : null;
+    }
 
-	/**
-	 * @return Column[]
-	 */
-	private function get_exportable_columns() {
-		return $this->exportable_columns_factory->create( $this->get_hidden_columns() );
-	}
+    /**
+     * @return int[]
+     */
+    protected function get_requested_ids(): array
+    {
+        $ids = $this->request->get('acp_export_ids');
 
-	/**
-	 * Retrieve the rows to export based on a set of item IDs. The rows contain the column data to
-	 * export for each item
-	 *
-	 * @param int[] $ids IDs of the items to export
-	 *
-	 * @return array[mixed] Rows to export. One row is returned for each item ID
-	 * @since 1.0
-	 */
-	public function get_rows( $ids ) {
-		$table = $this->get_list_table();
+        if (empty($ids)) {
+            return [];
+        }
 
-		if ( ! $table ) {
-			return [];
-		}
+        return array_map('absint', explode(',', $ids));
+    }
 
-		$exportable_columns = $this->get_exportable_columns();
+    /**
+     * @return Column[]
+     */
+    public function get_requested_columns(): array
+    {
+        $column_names = $this->request->get('acp_export_columns');
 
-		// Construct CSV rows
-		$rows = [];
-		$headers = $this->get_headers( $exportable_columns );
+        if ( ! $column_names) {
+            return [];
+        }
 
-		foreach ( $ids as $id ) {
-			$row = [];
+        $column_names = explode(',', $column_names);
 
-			foreach ( $exportable_columns as $column ) {
-				$header = $column->get_name();
+        if ( ! $column_names) {
+            return [];
+        }
 
-				if ( ! isset( $headers[ $header ] ) ) {
-					continue;
-				}
+        return $this->column_repository->find_all([
+            'filter' => [
+                new ExportableColumns(),
+                new IncludeColumnNames($column_names),
+            ],
+            'sort'   => new ColumnNames($column_names),
+        ]);
+    }
 
-				$model = $column instanceof Exportable
-					? $column->export()
-					: new Model\RawValue( $column );
+    /**
+     * Retrieve the rows to export based on a set of item IDs. The rows contain the column data to
+     * export for each item
+     *
+     * @param int[]    $ids IDs of the items to export
+     * @param Column[] $columns
+     *
+     * @return array[mixed] Rows to export. One row is returned for each item ID
+     * @since 1.0
+     */
+    public function get_rows(array $ids, array $columns): array
+    {
+        $rows = [];
 
-				$value = $model->get_value( $id );
+        $table = $this->get_list_table();
+        $headers = $this->get_headers($columns);
 
-				if ( null === $value && $column->is_original() ) {
-					$value = $table->get_column_value( $column->get_name(), $id );
-				}
+        foreach ($ids as $id) {
+            $row = [];
 
-				/**
-				 * Filter the column value exported to CSV or another file format in the
-				 * exportability add-on. This filter is applied to each value individually, i.e.,
-				 * once for every column for every item in the list screen.
-				 *
-				 * @param string     $value                  Column value to export for item
-				 * @param Column     $column                 Column object to export for
-				 * @param int        $id                     Item ID to export for
-				 * @param ListScreen $exportable_list_screen Exportable list screen instance
-				 *
-				 * @since 1.0
-				 */
-				$value = apply_filters( 'ac/export/value', $value, $column, $id, $this );
+            foreach ($columns as $column) {
+                $header = $column->get_name();
 
-				// Add column to row data
-				$row[ $header ] = $value;
-			}
+                if ( ! isset($headers[$header])) {
+                    continue;
+                }
 
-			/**
-			 * Filter the complete row. Allows to add extra columns to the exported file
-			 *
-			 * @param array      $row         Associative array of data for corresponding headers
-			 * @param int        $id          Item ID to export for
-			 * @param ListScreen $list_screen Exportable list screen instance
-			 */
-			$row = apply_filters( 'ac/export/row', $row, $id, $this );
+                $service = $column instanceof Exportable
+                    ? $column->export()
+                    : new Model\RawValue($column);
 
-			// Add current row to list of rows
-			$rows[] = $row;
-		}
+                if ( ! $service) {
+                    continue;
+                }
 
-		return $rows;
-	}
+                $value = $service->get_value($id);
 
-	/**
-	 * @return array
-	 */
-	private function get_hidden_columns() {
-		return get_hidden_columns( $this->get_list_screen()->get_screen_id() );
-	}
+                if ($table && in_array($value, [null, ''], true) && $column->is_original()) {
+                    $value = $table->get_column_value($column->get_name(), $id);
+                }
 
-	/**
-	 * Retrieve the headers for the columns
-	 *
-	 * @param Column[] $columns
-	 *
-	 * @return string[] Associative array of header labels for the columns.
-	 */
-	protected function get_headers( array $columns ) {
-		$headers = [];
+                /**
+                 * Filter the column value exported to CSV or another file format in the
+                 * exportability add-on. This filter is applied to each value individually, i.e.,
+                 * once for every column for every item in the list screen.
+                 *
+                 * @param string        $value       Column value to export for item
+                 * @param Column        $column      Column object to export for
+                 * @param int           $id          Item ID to export for
+                 * @param AC\ListScreen $list_screen Exportable list screen instance
+                 *
+                 * @since 1.0
+                 */
+                $value = (string)apply_filters('ac/export/value', $value, $column, $id, $this->list_screen);
 
-		foreach ( $columns as $column ) {
-			$label = strip_tags( $column->get_setting( 'label' )->get_value() );
+                $row[$header] = $this->escape_data($value, $column);
+            }
 
-			if ( empty( $label ) ) {
-				$label = $column->get_type();
-			}
+            /**
+             * Filter the complete row. Allows to add extra columns to the exported file
+             *
+             * @param array      $row         Associative array of data for corresponding headers
+             * @param int        $id          Item ID to export for
+             * @param ListScreen $list_screen Exportable list screen instance
+             */
+            $row = apply_filters('ac/export/row', $row, $id, $this);
 
-			$headers[ $column->get_name() ] = $label;
-		}
+            $rows[] = $row;
+        }
 
-		/**
-		 * Filter to alter the headers. Allows to add extra headers to the exported file
-		 *
-		 * @param array      $headers     Associative array of data for corresponding headers
-		 * @param ListScreen $list_screen Exportable list screen instance
-		 */
-		return apply_filters( 'ac/export/headers', $headers, $this );
-	}
+        return $rows;
+    }
 
-	/**
-	 * Export a list of items, given the item IDs, and sends the output as JSON to the requesting
-	 * AJAX process
-	 *
-	 * @param int[] $ids
-	 *
-	 * @since 1.0
-	 */
-	public function export( $ids ) {
-		$ids = array_map( 'intval', $ids );
+    private function apply_escape_data(Column $column): bool
+    {
+        return (bool)apply_filters('ac/export/value/escape', true, $column);
+    }
 
-		$csv = '';
+    /**
+     * @see https://owasp.org/www-community/attacks/CSV_Injection
+     */
+    public function escape_data(string $data, Column $column): string
+    {
+        if ( ! $this->apply_escape_data($column)) {
+            return $data;
+        }
 
-		// Retrieve list screen items and columns
-		$rows = $this->get_rows( $ids );
+        $characters = [
+            '=',
+            '+',
+            '-',
+            '@',
+            chr(0x09), // Tab (\t)
+            chr(0x0d), // Carriage Return (\r)
+        ];
 
-		$exportable_columns = $this->get_exportable_columns();
+        if (in_array(mb_substr($data, 0, 1), $characters, true)) {
+            $data = sprintf("'%s", $data);
+        }
 
-		if ( count( $rows ) > 0 ) {
-			// Create CSV exporter
-			$exporter = new Exporter\CSV();
-			$exporter->load_data( $rows );
+        return $data;
+    }
 
-			if ( $this->get_export_counter() === 0 ) {
-				$exporter->load_column_labels( $this->get_headers( $exportable_columns ) );
-			}
+    /**
+     * Retrieve the headers for the columns
+     *
+     * @param Column[] $columns
+     *
+     * @return string[] Associative array of header labels for the columns.
+     */
+    protected function get_headers(array $columns): array
+    {
+        $headers = [];
 
-			$fh = fopen( 'php://memory', 'wb' );
-			$exporter->export( $fh );
-			$csv = stream_get_contents( $fh, -1, 0 );
+        foreach ($columns as $column) {
+            $label = strip_tags($column->get_setting('label')->get_value());
 
-			fclose( $fh );
-		}
+            if (empty($label)) {
+                $label = $column->get_type();
+            }
 
-		wp_send_json_success( [
-			'rows'               => $csv,
-			'num_rows_processed' => count( $rows ),
-		] );
-	}
+            $headers[$column->get_name()] = $label;
+        }
 
-	/**
-	 * Get the filtered number of items per iteration of the exporting algorithm
-	 * @return int Number of items per export iteration
-	 * @since 1.0
-	 */
-	public function get_num_items_per_iteration() {
-		/**
-		 * Filters the number of items to export per iteration of the exporting mechanism. It
-		 * controls the number of items per batch, i.e., the number of items to process at once:
-		 * the final number of items in the export file does not depend on this parameter
-		 *
-		 * @param int      $num_items Number of items per export iteration
-		 * @param Strategy $this      Exportable list screen instance
-		 *
-		 * @since 1.0
-		 */
-		return (int) apply_filters( 'ac/export/exportable_list_screen/num_items_per_iteration', 250, $this );
-	}
+        /**
+         * Filter to alter the headers. Allows to add extra headers to the exported file
+         *
+         * @param array      $headers     Associative array of data for corresponding headers
+         * @param ListScreen $list_screen Exportable list screen instance
+         */
+        return apply_filters('ac/export/headers', $headers, $this);
+    }
 
-	/**
-	 * @return int|null
-	 */
-	public function get_total_items() {
-		$table = $this->get_list_table();
+    /**
+     * Export a list of items, given the item IDs, and sends the output as JSON to the requesting
+     * AJAX process
+     *
+     * @param int[] $ids
+     */
+    public function export(array $ids): void
+    {
+        $csv = '';
 
-		return $table
-			? $table->get_total_items()
-			: null;
-	}
+        $columns = $this->get_requested_columns();
+
+        if ( ! $columns) {
+            wp_send_json_error(__("No exportable columns found.", 'codepress-admin-columns'));
+        }
+
+        $rows = $this->get_rows($ids, $columns);
+
+        if (count($rows) > 0) {
+            $exporter = new Exporter\CSV();
+            $exporter->load_data($rows);
+
+            if ($this->get_export_counter() === 0) {
+                $exporter->load_column_labels($this->get_headers($columns));
+            }
+
+            $fh = fopen('php://memory', 'wb');
+            $exporter->export($fh);
+            $csv = stream_get_contents($fh, -1, 0);
+
+            fclose($fh);
+        }
+
+        wp_send_json_success([
+            'rows'               => $csv,
+            'num_rows_processed' => count($rows),
+        ]);
+    }
+
+    /**
+     * Get the filtered number of items per iteration of the exporting algorithm
+     * @return int Number of items per export iteration
+     */
+    public function get_num_items_per_iteration(): int
+    {
+        /**
+         * Filters the number of items to export per iteration of the exporting mechanism. It
+         * controls the number of items per batch, i.e., the number of items to process at once:
+         * the final number of items in the export file does not depend on this parameter
+         *
+         * @param int      $num_items Number of items per export iteration
+         * @param Strategy $this      Exportable list screen instance
+         */
+        return (int)apply_filters('ac/export/exportable_list_screen/num_items_per_iteration', 250, $this);
+    }
+
+    public function get_total_items(): ?int
+    {
+        $table = $this->get_list_table();
+
+        return $table
+            ? $table->get_total_items()
+            : null;
+    }
 
 }

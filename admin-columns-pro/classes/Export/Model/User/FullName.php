@@ -2,15 +2,14 @@
 
 namespace ACP\Export\Model\User;
 
-use ACP\Export\Model;
+use ACP\Export\Service;
 
-/**
- * @since 4.1
- */
-class FullName extends Model {
+class FullName implements Service
+{
 
-	public function get_value( $id ) {
-		return ac_helper()->user->get_display_name( $id, 'full_name' );
-	}
+    public function get_value($id)
+    {
+        return ac_helper()->user->get_display_name((int)$id, 'full_name') ?: '-';
+    }
 
 }

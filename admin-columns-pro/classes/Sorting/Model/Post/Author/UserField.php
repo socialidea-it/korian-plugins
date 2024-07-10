@@ -1,51 +1,41 @@
 <?php
 
+declare(strict_types=1);
+
 namespace ACP\Sorting\Model\Post\Author;
 
-use ACP;
-use ACP\Sorting\AbstractModel;
+use ACP\Query\Bindings;
+use ACP\Sorting\Model\QueryBindings;
+use ACP\Sorting\Model\SqlOrderByFactory;
+use ACP\Sorting\Type\Order;
 
-class UserField extends AbstractModel {
+class UserField implements QueryBindings
+{
 
-	/**
-	 * @var string
-	 */
-	private $user_field;
+    private $user_field;
 
-	public function __construct( $user_field ) {
-		parent::__construct();
+    public function __construct(string $user_field)
+    {
+        $this->user_field = $user_field;
+    }
 
-		$this->user_field = (string) $user_field;
-	}
+    public function create_query_bindings(Order $order): Bindings
+    {
+        global $wpdb;
 
-	public function get_sorting_vars() {
-		add_filter( 'posts_clauses', [ $this, 'sorting_clauses_callback' ] );
+        $bindings = new Bindings();
 
-		return [
-			'suppress_filters' => false,
-		];
-	}
+        $alias = $bindings->get_unique_alias('userfield');
 
-	public function sorting_clauses_callback( $clauses ) {
-		global $wpdb;
+        $bindings->join("INNER JOIN $wpdb->users AS $alias ON $wpdb->posts.post_author = $alias.ID");
+        $bindings->order_by(
+            SqlOrderByFactory::create(
+                sprintf("$alias.%s", $this->user_field),
+                (string)$order
+            )
+        );
 
-		$order = esc_sql( $this->get_order() );
-
-		$join_type = $this->show_empty
-			? 'LEFT'
-			: 'INNER';
-
-		$clauses['join'] .= " {$join_type} JOIN {$wpdb->users} AS acsort_users ON {$wpdb->posts}.post_author = acsort_users.ID";
-
-		if ( ! $this->show_empty ) {
-			$clauses['join'] .= sprintf( " AND acsort_users.`%s` <> ''", esc_sql( $this->user_field ) );
-		}
-
-		$clauses['orderby'] = sprintf( "acsort_users.%s $order, $wpdb->posts.ID $order", esc_sql( $this->user_field ) );
-
-		remove_filter( 'posts_clauses', [ $this, __FUNCTION__ ] );
-
-		return $clauses;
-	}
+        return $bindings;
+    }
 
 }

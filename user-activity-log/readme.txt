@@ -3,9 +3,9 @@ Contributors: solwininfotech, sanjaydabhoya, khushbupadalia
 Donate link: https://www.solwininfotech.com/product/wordpress-plugins/user-activity-log-pro/
 Tags: admin user log, user log, user, log, user activity, activity log, log user, record user activity, log user action, user action log, wordpress admin security, wordpress security, security, user tracking, user activity monitor, watch user, track user, track user activity, track activity.
 Requires at least: 5.4
-Tested up to: 6.1.1
+Tested up to: 6.5.3
 Requires PHP: 7.0
-Stable tag: 1.6
+Stable tag: 2.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -137,6 +137,81 @@ Monitor and track all backend activities those are done by your freelancers, web
 
 
 == Changelog ==
+
+= 2.0 =
+Release date: May 23, 2024
+
+* Updated: Make compatible with WP 6.5.3
+* Updated: Make compatible with PHP version 8.3.x
+* Updated: Make compatible with Elementor version 3.x
+* Fixed: Code Improvements
+
+= 1.9 =
+Release date: April 11, 2024
+
+* Updated: Make compatible with WP 6.5.2
+* Fixed: Minor issues
+
+= 1.8 =
+Release date: February 1, 2024
+
+* Updated: Make compatible with WP 6.4.3
+* Updated: Make compatible with PHP version 8.3
+
+= 1.7 =
+Release date: December 13, 2023
+
+* Updated: Make compatible with WP 6.4.2
+
+= 1.6.9 =
+Release date: November 10, 2023
+
+* Updated: Make compatible with WP 6.4.1
+
+= 1.6.8 =
+Release date: September 21, 2023
+
+* Updated: Make compatible with WP 6.3.1
+* Updated: Update compatibility with Gravity form plugin
+
+= 1.6.7 =
+Release date: August 10, 2023
+
+* Updated: Make compatible with WP 6.3
+* Updated: Add options to get IP Address
+
+= 1.6.6 =
+Release date: August 7, 2023
+
+* Fixed: Export Log Issue
+
+= 1.6.5 =
+Release date: July 18, 2023
+
+* Fixed: Export Log Issue
+
+= 1.6.4 =
+Release date: July 13, 2023
+
+* Fixed: WPScan Report Issue
+
+= 1.6.3 =
+Release date: June 6, 2023
+
+* Fixed: SQL Injection Issue
+
+= 1.6.2 =
+Release date: May 25, 2023
+
+* Updated: Compatible with WordPress 6.2.2
+* Fixed: SQL Injection Issue
+
+= 1.6.1 =
+Release date: April 5, 2023
+
+* Updated: Compatible with WordPress 6.2
+* Updated: Make compatible with PHP version 8.2
+* Fixed: Minor issues
 
 = 1.6 =
 Release date: December 14, 2022

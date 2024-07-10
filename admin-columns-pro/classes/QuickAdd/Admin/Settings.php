@@ -3,13 +3,13 @@
 namespace ACP\QuickAdd\Admin;
 
 use AC\ListScreen;
-use AC\Registrable;
-use ACP\QuickAdd\Admin\HideOnScreen;
+use AC\Registerable;
 use ACP\QuickAdd\Filter;
 use ACP\QuickAdd\Model\Factory;
 use ACP\Settings\ListScreen\HideOnScreenCollection;
+use ACP\Type\HideOnScreen\Group;
 
-class Settings implements Registrable {
+class Settings implements Registerable {
 
 	/**
 	 * @var Filter
@@ -20,7 +20,8 @@ class Settings implements Registrable {
 		$this->filter = $filter;
 	}
 
-	public function register() {
+	public function register(): void
+    {
 		add_action( 'acp/admin/settings/hide_on_screen', [ $this, 'add_hide_on_screen' ], 10, 2 );
 	}
 
@@ -35,7 +36,7 @@ class Settings implements Registrable {
 			return;
 		}
 
-		$collection->add( new HideOnScreen\QuickAdd(), 60 );
+		$collection->add( new HideOnScreen\QuickAdd(), new Group( Group::FEATURE ), 60 );
 	}
 
 }

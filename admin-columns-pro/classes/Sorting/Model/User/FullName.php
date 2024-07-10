@@ -2,36 +2,44 @@
 
 namespace ACP\Sorting\Model\User;
 
-use ACP\Sorting\AbstractModel;
-use WP_User_Query;
+use ACP\Query\Bindings;
+use ACP\Sorting\Model\QueryBindings;
+use ACP\Sorting\Model\SqlOrderByFactory;
+use ACP\Sorting\Type\Order;
 
-class FullName extends AbstractModel {
+class FullName implements QueryBindings
+{
 
-	public function get_sorting_vars() {
-		add_action( 'pre_user_query', [ $this, 'pre_user_query_callback' ] );
+    public function create_query_bindings(Order $order): Bindings
+    {
+        global $wpdb;
 
-		return [];
-	}
+        $bindings = new Bindings();
 
-	public function pre_user_query_callback( WP_User_Query $query ) {
-		global $wpdb;
+        $alias_meta1 = $bindings->get_unique_alias('fullname');
+        $alias_meta2 = $bindings->get_unique_alias('fullname');
 
-		$order = esc_sql( $this->get_order() );
+        $bindings->join(
+            "
+			INNER JOIN $wpdb->usermeta AS $alias_meta1 ON $wpdb->users.ID = $alias_meta1.user_id
+				AND $alias_meta1.meta_key = 'first_name'
+			INNER JOIN $wpdb->usermeta AS $alias_meta2 ON $wpdb->users.ID = $alias_meta2.user_id
+				AND $alias_meta2.meta_key = 'last_name'
+		    "
+        );
 
-		$query->query_fields .= ", CONCAT( acsort_usermeta1.meta_value, acsort_usermeta2.meta_value ) AS acsort_fullname";
-		$query->query_from .= "
-			INNER JOIN {$wpdb->usermeta} AS acsort_usermeta1 ON {$wpdb->users}.ID = acsort_usermeta1.user_id
-				AND acsort_usermeta1.meta_key = 'first_name'
-			INNER JOIN {$wpdb->usermeta} AS acsort_usermeta2 ON {$wpdb->users}.ID = acsort_usermeta2.user_id
-				AND acsort_usermeta2.meta_key = 'last_name'
-		";
+        $bindings->group_by("$wpdb->users.ID");
+        $bindings->order_by(
+            SqlOrderByFactory::create_with_concat(
+                [
+                    "$alias_meta1.meta_value",
+                    "$alias_meta2.meta_value",
+                ],
+                (string)$order
+            ) . ", $wpdb->users.ID " . $order
+        );
 
-		$query->query_orderby = "
-			GROUP BY {$wpdb->users}.ID
-			ORDER BY acsort_fullname {$order}, {$wpdb->users}.display_name {$order}
-		";
-
-		remove_action( 'pre_user_query', [ $this, __FUNCTION__ ] );
-	}
+        return $bindings;
+    }
 
 }

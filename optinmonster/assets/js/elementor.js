@@ -5,13 +5,13 @@
  * https://awesomemotive.com
  * ========================================================== */
 
-'use strict';
-
-import CampaignSelector from './Elementor/CampaignSelector';
+// Lazy-loading to get around https://github.com/elementor/elementor/issues/19709
+const getCampaignSelector = () => import('./Elementor/CampaignSelector');
 
 window.OMAPI_Elementor = window.OMAPI_Elementor || {};
+window.OMAPI_Elementor.instances = window.OMAPI_Elementor.instances || [];
 
-(function (window, document, $, app, undefined) {
+(function (window, document, $, app) {
 	/**
 	 * Tells the campaign being initiated that it is in preview mode (form will not work).
 	 *
@@ -38,7 +38,7 @@ window.OMAPI_Elementor = window.OMAPI_Elementor || {};
 	app.triggerLoaded = (evt) => {
 		const { id } = evt.detail.Campaign;
 
-		CampaignSelector.instances.forEach((instance) => {
+		app.instances.forEach((instance) => {
 			instance.trigger(instance.campaignSlug() === id ? 'campaignLoaded' : 'otherCampaignLoaded');
 		});
 	};
@@ -60,7 +60,7 @@ window.OMAPI_Elementor = window.OMAPI_Elementor || {};
 			return;
 		}
 
-		const instance = CampaignSelector.instances.find((i) => i.campaignSlug() === id);
+		const instance = app.instances.find((i) => i.campaignSlug() === id);
 		if (!instance) {
 			return;
 		}
@@ -84,7 +84,7 @@ window.OMAPI_Elementor = window.OMAPI_Elementor || {};
 	app.triggerRemove = (evt) => {
 		const { id } = evt.detail;
 
-		CampaignSelector.instances.forEach((instance) => {
+		app.instances.forEach((instance) => {
 			if (instance.campaignSlug() !== id) {
 				instance.trigger('otherCampaignRemoved', id);
 			}
@@ -114,15 +114,26 @@ window.OMAPI_Elementor = window.OMAPI_Elementor || {};
 			elementor.channels.editor.on('elementorOMAPICreateAccount', () => window.open(OMAPI.wizardUri));
 			elementor.channels.editor.on('elementorOMAPIConnectAccount', () => window.open(OMAPI.settingsUri));
 
-			elementorFrontend.hooks.addAction('frontend/element_ready/optinmonster.default', ($element) => {
-				elementorFrontend.elementsHandler.addHandler(CampaignSelector, { $element });
-			});
-
 			document.addEventListener('om.Campaign.afterShow', app.triggerLoaded);
 			document.addEventListener('om.Main.getCampaigns.error', app.triggerError);
 			document.addEventListener('om.Campaign.show.error', app.triggerError);
 			document.addEventListener('om.Campaign.load.error', app.triggerError);
 			document.addEventListener('om.Plugin.Elementor.Instance.removed', app.triggerRemove);
+
+			// Check for new style of handler attachment.
+			// https://developers.elementor.com/a-new-method-for-attaching-a-js-handler-to-an-element/
+			if (elementorFrontend.elementsHandler && elementorFrontend.elementsHandler.attachHandler) {
+				getCampaignSelector().then((CampaignSelector) => {
+					elementorFrontend.elementsHandler.attachHandler('optinmonster', CampaignSelector.default);
+				});
+			} else {
+				// Fallback to previous method.
+				elementorFrontend.hooks.addAction('frontend/element_ready/optinmonster.default', ($element) => {
+					getCampaignSelector().then((CampaignSelector) => {
+						elementorFrontend.elementsHandler.addHandler(CampaignSelector.default, { $element });
+					});
+				});
+			}
 		});
 	};
 

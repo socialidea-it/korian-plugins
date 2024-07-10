@@ -229,7 +229,7 @@ class OMAPI_Save {
 				'post_excerpt' => $optin->id,
 				'post_content' => $optin->output,
 				'post_status'  => $status,
-				'post_type'    => 'omapi',
+				'post_type'    => OMAPI_Type::SLUG,
 			)
 		);
 
@@ -420,7 +420,7 @@ class OMAPI_Save {
 	 *
 	 * @since 2.2.0
 	 *
-	 * @param  mixed $shortcodes Convert shorcodes array to a concatenated string.
+	 * @param  mixed $shortcodes Convert shortcodes array to a concatenated string.
 	 *
 	 * @return string
 	 */

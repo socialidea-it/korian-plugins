@@ -5,520 +5,579 @@ namespace AC\Helper;
 use DOMDocument;
 use DOMElement;
 
-class Html {
+class Html
+{
 
-	/**
-	 * @param string $key
-	 * @param string $value
-	 *
-	 * @return string
-	 * @since 3.0
-	 */
-	public function get_attribute_as_string( $key, $value ) {
-		return sprintf( '%s="%s"', $key, esc_attr( trim( $value ) ) );
-	}
+    public function get_attribute_as_string(string $key, $value = null): string
+    {
+        return ac_helper()->string->is_not_empty($value)
+            ? sprintf('%s="%s"', $key, esc_attr(trim($value)))
+            : $key;
+    }
 
-	/**
-	 * @param array $attributes
-	 *
-	 * @return string
-	 * @since 3.0
-	 */
-	public function get_attributes_as_string( array $attributes ) {
-		$output = [];
+    public function get_attributes_as_string(array $attributes): string
+    {
+        $output = [];
 
-		foreach ( $attributes as $key => $value ) {
-			$output[] = $this->get_attribute_as_string( $key, $value );
-		}
+        foreach ($attributes as $key => $value) {
+            $output[] = $this->get_attribute_as_string($key, $value);
+        }
 
-		return implode( ' ', $output );
-	}
+        return implode(' ', $output);
+    }
 
-	/**
-	 * @param string $url
-	 * @param string $label
-	 * @param array  $attributes
-	 *
-	 * @return string|false HTML Anchor element
-	 */
-	public function link( $url, $label = null, $attributes = [] ) {
-		if ( false === $label ) {
-			return false;
-		}
+    public function get_style_attributes_as_string(array $attributes): string
+    {
+        $style = '';
 
-		if ( ! $url ) {
-			return $label;
-		}
+        foreach ($attributes as $key => $value) {
+            $style .= sprintf('%s:%s;', $key, $value);
+        }
 
-		if ( null === $label ) {
-			$label = urldecode( $url );
-		}
+        return $style;
+    }
 
-		if ( ! $label ) {
-			return false;
-		}
+    /**
+     * @param string $url
+     * @param string $label
+     * @param array  $attributes
+     *
+     * @return string|false HTML Anchor element
+     */
+    public function link($url, $label = null, $attributes = [])
+    {
+        if (false === $label) {
+            return false;
+        }
 
-		if ( ! $this->contains_html( $label ) ) {
-			$label = esc_html( $label );
-		}
+        if ( ! $url) {
+            return $label;
+        }
 
-		if ( array_key_exists( 'tooltip', $attributes ) ) {
-			$attributes['data-ac-tip'] = $attributes['tooltip'];
-			unset( $attributes['tooltip'] );
-		}
+        if (null === $label) {
+            $label = urldecode($url);
+        }
 
-		$allowed = wp_allowed_protocols();
-		$allowed[] = 'skype';
-		$allowed[] = 'call';
+        if ( ! $label) {
+            return false;
+        }
 
-		return '<a href="' . esc_url( $url, $allowed ) . '" ' . $this->get_attributes( $attributes ) . '>' . $label . '</a>';
-	}
+        if ( ! $this->contains_html($label)) {
+            $label = esc_html($label);
+        }
 
-	/**
-	 * @since 2.5
-	 */
-	public function divider() {
-		return '<span class="ac-divider"></span>';
-	}
+        if (array_key_exists('tooltip', $attributes)) {
+            $attributes['data-ac-tip'] = $attributes['tooltip'];
+            unset($attributes['tooltip']);
+        }
 
-	/**
-	 * @param string $content
-	 *
-	 * @return string
-	 */
-	public function get_tooltip_attr( $content ) {
-		if ( ! $content ) {
-			return false;
-		}
+        $allowed = wp_allowed_protocols();
+        $allowed[] = 'skype';
+        $allowed[] = 'call';
 
-		return 'data-ac-tip="' . esc_attr( $content ) . '"';
-	}
+        return '<a href="' . esc_url($url, $allowed) . '" ' . $this->get_attributes(
+                $attributes
+            ) . '>' . $label . '</a>';
+    }
 
-	/**
-	 * @param       $label
-	 * @param       $tooltip
-	 * @param array $attributes
-	 *
-	 * @return string
-	 */
-	public function tooltip( $label, $tooltip, $attributes = [] ) {
-		if ( ac_helper()->string->is_not_empty( $label ) && $tooltip ) {
-			$label = '<span ' . $this->get_tooltip_attr( $tooltip ) . $this->get_attributes( $attributes ) . '>' . $label . '</span>';
-		}
+    /**
+     * @since 2.5
+     */
+    public function divider()
+    {
+        return '<span class="ac-divider"></span>';
+    }
 
-		return $label;
-	}
+    /**
+     * @param string $content
+     *
+     * @return string
+     */
+    public function get_tooltip_attr($content)
+    {
+        if ( ! $content) {
+            return false;
+        }
 
-	/**
-	 * Displays a toggle Box.
-	 *
-	 * @param string $label
-	 * @param string $contents
-	 */
-	public function toggle_box( $label, $contents ) {
-		if ( ! $label ) {
-			return;
-		}
+        return 'data-ac-tip="' . esc_attr($content) . '"';
+    }
 
-		if ( $contents ) : ?>
-			<a class="ac-toggle-box-link" href="#"><?php echo $label; ?></a>
-			<div class="ac-toggle-box-contents"><?php echo $contents; ?></div>
-		<?php
-		else :
-			echo $label;
-		endif;
-	}
+    /**
+     * @param       $label
+     * @param       $tooltip
+     * @param array $attributes
+     *
+     * @return string
+     */
+    public function tooltip($label, $tooltip, $attributes = [])
+    {
+        if (ac_helper()->string->is_not_empty($label) && $tooltip) {
+            $label = '<span ' . $this->get_tooltip_attr($tooltip) . $this->get_attributes(
+                    $attributes
+                ) . '>' . $label . '</span>';
+        }
 
-	/**
-	 * Display a toggle box which trigger an ajax event on click. The ajax callback calls AC\Column::get_ajax_value.
-	 *
-	 * @param int    $id
-	 * @param string $label
-	 * @param string $column_name
-	 *
-	 * @return string
-	 */
-	public function get_ajax_toggle_box_link( $id, $label, $column_name, $label_close = null ) {
-		return ac_helper()->html->link( '#', $label . '<div class="spinner"></div>', [
-			'class'              => 'ac-toggle-box-link',
-			'data-column'        => $column_name,
-			'data-item-id'       => $id,
-			'data-ajax-populate' => 1,
-			'data-label'         => $label,
-			'data-label-close'   => $label_close,
-		] );
-	}
+        return $label;
+    }
 
-	/**
-	 * Display a modal which trigger an ajax event on click. The ajax callback calls AC\Column::get_ajax_value.
-	 *
-	 * @param string      $label
-	 * @param string|null $title
-	 *
-	 * @return string
-	 */
-	public function get_ajax_modal_link( $label, array $attributes = [] ) {
-		$attribute_markup = [];
+    /**
+     * Displays a toggle Box.
+     *
+     * @param string $label
+     * @param string $contents
+     */
+    public function toggle_box($label, $contents)
+    {
+        if ( ! $label) {
+            return;
+        }
 
-		if ( isset( $attributes['title'] ) && $attributes['title'] ) {
-			$attribute_markup[] = sprintf( 'data-modal-title="%s"', esc_attr( $attributes['title'] ) );
-		}
-		if ( isset( $attributes['edit_link'] ) && $attributes['edit_link'] ) {
-			$attribute_markup[] = sprintf( 'data-modal-edit-link="%s"', esc_url( $attributes['edit_link'] ) );
-		}
-		if ( isset( $attributes['download_link'] ) && $attributes['download_link'] ) {
-			$attribute_markup[] = sprintf( 'data-modal-download-link="%s"', esc_url( $attributes['download_link'] ) );
-		}
-		if ( isset( $attributes['class'] ) && $attributes['class'] ) {
-			$attribute_markup[] = sprintf( 'data-modal-class="%s"', esc_attr( $attributes['class'] ) );
-		}
-		if ( isset( $attributes['id'] ) && $attributes['id'] ) {
-			$attribute_markup[] = sprintf( 'data-modal-id="%s"', esc_attr( $attributes['id'] ) );
-		}
+        if ($contents) : ?>
+			<a class="ac-toggle-box-link" href="#"><?php
+                echo $label; ?></a>
+			<div class="ac-toggle-box-contents"><?php
+                echo $contents; ?></div>
+        <?php
+        else :
+            echo $label;
+        endif;
+    }
 
-		return sprintf( '<a data-modal-value %s>%s</a>',
-			implode( ' ', $attribute_markup ),
-			$label
-		);
-	}
+    /**
+     * Display a toggle box which trigger an ajax event on click. The ajax callback calls AC\Column::get_ajax_value.
+     *
+     * @param int    $id
+     * @param string $label
+     * @param string $column_name
+     *
+     * @return string
+     */
+    public function get_ajax_toggle_box_link($id, $label, $column_name, $label_close = null)
+    {
+        return ac_helper()->html->link('#', $label . '<div class="spinner"></div>', [
+            'class'              => 'ac-toggle-box-link',
+            'data-column'        => $column_name,
+            'data-item-id'       => $id,
+            'data-ajax-populate' => 1,
+            'data-label'         => $label,
+            'data-label-close'   => $label_close,
+        ]);
+    }
 
-	/**
-	 * @param string $string
-	 * @param int    $max_chars
-	 *
-	 * @return string
-	 */
-	public function codearea( $string, $max_chars = 1000 ) {
-		if ( ! $string ) {
-			return false;
-		}
+    /**
+     * Display a modal which trigger an ajax event on click. The ajax callback calls AC\Column::get_ajax_value.
+     */
+    public function get_ajax_modal_link(string $label, array $attributes = [], string $label_suffix = null): string
+    {
+        $attribute_markup = [];
 
-		return '<textarea style="color: #808080; width: 100%; min-height: 60px;" readonly>' . substr( $string, 0, $max_chars ) . '</textarea>';
-	}
+        if (isset($attributes['title']) && $attributes['title']) {
+            $attribute_markup[] = sprintf('data-modal-title="%s"', esc_attr($attributes['title']));
+        }
+        if (isset($attributes['edit_link']) && $attributes['edit_link']) {
+            $attribute_markup[] = sprintf('data-modal-edit-link="%s"', esc_url($attributes['edit_link']));
+        }
+        if (isset($attributes['download_link']) && $attributes['download_link']) {
+            $attribute_markup[] = sprintf('data-modal-download-link="%s"', esc_url($attributes['download_link']));
+        }
+        if (isset($attributes['class']) && $attributes['class']) {
+            $attribute_markup[] = sprintf('data-modal-class="%s"', esc_attr($attributes['class']));
+        }
+        if (isset($attributes['id']) && $attributes['id']) {
+            $attribute_markup[] = sprintf('data-modal-id="%s"', esc_attr($attributes['id']));
+        }
 
-	/**
-	 * @param array $attributes
-	 *
-	 * @return string
-	 */
-	private function get_attributes( $attributes ) {
-		$_attributes = [];
+        return sprintf(
+            '<a style="border-bottom: 1px dotted;" data-modal-value %s>%s</a>%s',
+            implode(' ', $attribute_markup),
+            $label,
+            $label_suffix
+        );
+    }
 
-		foreach ( $attributes as $attribute => $value ) {
-			if ( in_array( $attribute, [ 'title', 'id', 'class', 'style', 'target', 'rel', 'download' ] ) || 'data-' === substr( $attribute, 0, 5 ) ) {
-				$_attributes[] = $this->get_attribute_as_string( $attribute, $value );
-			}
-		}
+    /**
+     * @param string $string
+     * @param int    $max_chars
+     *
+     * @return string
+     */
+    public function codearea($string, $max_chars = 1000)
+    {
+        if ( ! $string) {
+            return false;
+        }
 
-		return ' ' . implode( ' ', $_attributes );
-	}
+        return '<textarea style="color: #808080; width: 100%; min-height: 60px;" readonly>' . substr(
+                $string,
+                0,
+                $max_chars
+            ) . '</textarea>';
+    }
 
-	/**
-	 * Returns an array with internal / external  links
-	 *
-	 * @param string $string
-	 * @param array  $internal_domains Domains which determine internal links. Default is home_url().
-	 *
-	 * @return false|array [ internal | external ]
-	 */
-	public function get_internal_external_links( $string, $internal_domains = [] ) {
-		if ( ! class_exists( 'DOMDocument' ) ) {
-			return false;
-		}
+    /**
+     * @param array $attributes
+     *
+     * @return string
+     */
+    private function get_attributes($attributes)
+    {
+        $_attributes = [];
 
-		// Just do a very simple check to check for possible links
-		if ( false === strpos( $string, '<a' ) ) {
-			return false;
-		}
+        foreach ($attributes as $attribute => $value) {
+            if (in_array($attribute, ['title', 'id', 'class', 'style', 'target', 'rel', 'download']
+                ) || 'data-' === substr($attribute, 0, 5)) {
+                $_attributes[] = $this->get_attribute_as_string($attribute, $value);
+            }
+        }
 
-		if ( ! $internal_domains ) {
-			$internal_domains = [ home_url() ];
-		}
+        return ' ' . implode(' ', $_attributes);
+    }
 
-		$internal_links = [];
-		$external_links = [];
+    /**
+     * Returns an array with internal / external  links
+     *
+     * @param string $string
+     * @param array  $internal_domains Domains which determine internal links. Default is home_url().
+     *
+     * @return false|array [ internal | external ]
+     */
+    public function get_internal_external_links($string, $internal_domains = [])
+    {
+        if ( ! class_exists('DOMDocument')) {
+            return false;
+        }
 
-		$dom = new DOMDocument();
-		@$dom->loadHTML( $string );
+        // Just do a very simple check to check for possible links
+        if (false === strpos($string, '<a')) {
+            return false;
+        }
 
-		$links = $dom->getElementsByTagName( 'a' );
+        if ( ! $internal_domains) {
+            $internal_domains = [home_url()];
+        }
 
-		foreach ( $links as $link ) {
-			/** @var DOMElement $link */
-			$href = $link->getAttribute( 'href' );
+        $internal_links = [];
+        $external_links = [];
 
-			if ( 0 === strpos( $href, '#' ) ) {
-				continue;
-			}
+        $dom = new DOMDocument();
 
-			$internal = false;
+        libxml_use_internal_errors(true);
+        $dom->loadHTML($string);
+        libxml_clear_errors();
 
-			foreach ( (array) $internal_domains as $domain ) {
-				if ( false !== strpos( $href, $domain ) ) {
-					$internal = true;
-				}
-			}
+        $links = $dom->getElementsByTagName('a');
 
-			if ( $internal ) {
-				$internal_links[] = $href;
-			} else {
-				$external_links[] = $href;
-			}
-		}
+        foreach ($links as $link) {
+            /**
+             * @var DOMElement $link
+             */
+            $href = $link->getAttribute('href');
 
-		if ( empty( $internal_links ) && empty( $external_links ) ) {
-			return false;
-		}
+            if (0 === strpos($href, '#')) {
+                continue;
+            }
 
-		return [
-			$internal_links, $external_links,
-		];
-	}
+            $internal = false;
 
-	/**
-	 * @param string $string
-	 *
-	 * @return bool
-	 */
-	private function contains_html( $string ) {
-		return $string && is_string( $string ) && $string !== strip_tags( $string );
-	}
+            foreach ((array)$internal_domains as $domain) {
+                if (false !== strpos($href, $domain)) {
+                    $internal = true;
+                }
+            }
 
-	/**
-	 * Display indicator icon in the column settings header
-	 *
-	 * @param      $class
-	 * @param      $id
-	 * @param bool $title
-	 */
-	public function indicator( $class, $id, $title = false ) { ?>
-		<span class="indicator-<?php echo esc_attr( $class ); ?>" data-indicator-id="<?php echo esc_attr( $id ); ?>" title="<?php echo esc_attr( $title ); ?>"></span>
-		<?php
-	}
+            if ($internal) {
+                $internal_links[] = $href;
+            } else {
+                $external_links[] = $href;
+            }
+        }
 
-	/**
-	 * Adds a divider to the implode
-	 *
-	 * @param      $array
-	 * @param bool $divider
-	 *
-	 * @return string
-	 */
-	public function implode( $array, $divider = true ) {
-		if ( ! is_array( $array ) ) {
-			return $array;
-		}
+        if (empty($internal_links) && empty($external_links)) {
+            return false;
+        }
 
-		// Remove empty values
-		$array = $this->remove_empty( $array );
+        return [
+            $internal_links,
+            $external_links,
+        ];
+    }
 
-		if ( true === $divider ) {
-			$divider = $this->divider();
-		}
+    /**
+     * @param string $string
+     *
+     * @return bool
+     */
+    private function contains_html($string)
+    {
+        return $string && is_string($string) && $string !== strip_tags($string);
+    }
 
-		return implode( $divider, $array );
-	}
+    /**
+     * Display indicator icon in the column settings header
+     *
+     * @param      $class
+     * @param      $id
+     * @param bool $title
+     */
+    public function indicator($class, $id, $title = false)
+    { ?>
+		<span class="indicator-<?php
+        echo esc_attr($class); ?>" data-indicator-id="<?php
+        echo esc_attr($id); ?>" title="<?php
+        echo esc_attr($title); ?>"></span>
+        <?php
+    }
 
-	public function remove_empty( $array ) {
-		return array_filter( $array, [ ac_helper()->string, 'is_not_empty' ] );
-	}
+    /**
+     * Adds a divider to the implode
+     *
+     * @param      $array
+     * @param bool $divider
+     *
+     * @return string
+     */
+    public function implode($array, $divider = true)
+    {
+        if ( ! is_array($array)) {
+            return $array;
+        }
 
-	/**
-	 * Remove attribute from an html tag
-	 *
-	 * @param string $html HTML tag
-	 * @param        $attributes
-	 *
-	 * @return mixed
-	 */
-	public function strip_attributes( $html, $attributes ) {
-		if ( $this->contains_html( $html ) ) {
-			foreach ( (array) $attributes as $attribute ) {
-				$html = preg_replace( '/(<[^>]+) ' . $attribute . '=".*?"/i', '$1', $html );
-			}
-		}
+        // Remove empty values
+        $array = $this->remove_empty($array);
 
-		return $html;
-	}
+        if (true === $divider) {
+            $divider = $this->divider();
+        }
 
-	/**
-	 * Small HTML block with grey background and rounded corners
-	 *
-	 * @param string|array $items
-	 *
-	 * @return string
-	 */
-	public function small_block( $items ) {
-		$blocks = [];
+        return implode($divider, $array);
+    }
 
-		foreach ( (array) $items as $item ) {
-			if ( $item && is_string( $item ) ) {
-				$blocks[] = '<span class="ac-small-block">' . $item . '</span>';
-			}
-		}
+    public function remove_empty($array)
+    {
+        return array_filter($array, [ac_helper()->string, 'is_not_empty']);
+    }
 
-		return implode( $blocks );
-	}
+    /**
+     * Remove attribute from an html tag
+     *
+     * @param string $html HTML tag
+     * @param        $attributes
+     *
+     * @return mixed
+     */
+    public function strip_attributes($html, $attributes)
+    {
+        if ($this->contains_html($html)) {
+            foreach ((array)$attributes as $attribute) {
+                $html = preg_replace('/(<[^>]+) ' . $attribute . '=".*?"/i', '$1', $html);
+            }
+        }
 
-	/**
-	 * @param array $args
-	 *
-	 * @return string
-	 */
-	public function progress_bar( $args = [] ) {
-		$defaults = [
-			'current'     => 0,
-			'total'       => 100, // -1 is infinitive
-			'label_left'  => '',
-			'label_right' => '',
-			'label_main'  => '',
-		];
+        return $html;
+    }
 
-		$args = wp_parse_args( $args, $defaults );
+    /**
+     * Small HTML block with grey background and rounded corners
+     *
+     * @param string|array $items
+     *
+     * @return string
+     */
+    public function small_block($items)
+    {
+        $blocks = [];
 
-		if ( -1 === $args['total'] ) {
-			$args['current'] = 0;
-			$args['total'] = 100;
-			$args['label_right'] = '&infin;';
-		}
+        foreach ((array)$items as $item) {
+            if ($item && is_string($item)) {
+                $blocks[] = '<span class="ac-small-block">' . $item . '</span>';
+            }
+        }
 
-		$args['current'] = absint( $args['current'] );
-		$args['total'] = absint( $args['total'] );
+        return implode($blocks);
+    }
 
-		if ( $args['total'] < 0 ) {
-			return false;
-		}
+    /**
+     * @param array $args
+     *
+     * @return string
+     */
+    public function progress_bar($args = [])
+    {
+        $defaults = [
+            'current'     => 0,
+            'total'       => 100, // -1 is infinitive
+            'label_left'  => '',
+            'label_right' => '',
+            'label_main'  => '',
+        ];
 
-		$percentage = 0;
+        $args = wp_parse_args($args, $defaults);
 
-		if ( $args['total'] > 0 ) {
-			$percentage = round( ( $args['current'] / $args['total'] ) * 100 );
-		}
+        if (-1 === $args['total']) {
+            $args['current'] = 0;
+            $args['total'] = 100;
+            $args['label_right'] = '&infin;';
+        }
 
-		// Allowed size is zero, but current has a value
-		if ( 0 === $args['total'] && $args['current'] > 0 ) {
-			$percentage = 101;
-		}
+        $args['current'] = absint($args['current']);
+        $args['total'] = absint($args['total']);
 
-		$class = '';
-		if ( $percentage > 100 ) {
-			$percentage = 100;
-			$class = ' full';
-		}
+        if ($args['total'] < 0) {
+            return false;
+        }
 
-		ob_start();
-		?>
-		<div class="ac-progress-bar<?php echo esc_attr( $class ); ?>">
-			<?php if ( $args['label_main'] ) : ?>
-				<span class="ac-label-main"><?php echo esc_html( $args['label_main'] ); ?></span>
-			<?php endif; ?>
+        $percentage = 0;
+
+        if ($args['total'] > 0) {
+            $percentage = round(($args['current'] / $args['total']) * 100);
+        }
+
+        // Allowed size is zero, but current has a value
+        if (0 === $args['total'] && $args['current'] > 0) {
+            $percentage = 101;
+        }
+
+        $class = '';
+        if ($percentage > 100) {
+            $percentage = 100;
+            $class = ' full';
+        }
+
+        ob_start();
+        ?>
+		<div class="ac-progress-bar<?php
+        echo esc_attr($class); ?>">
+            <?php
+            if ($args['label_main']) : ?>
+				<span class="ac-label-main"><?php
+                    echo esc_html($args['label_main']); ?></span>
+            <?php
+            endif; ?>
 			<div class="ac-bar-container">
-				<span class="ac-label-left"><?php echo esc_html( $args['label_left'] ); ?></span>
-				<span class="ac-label-right"><?php echo esc_html( $args['label_right'] ); ?></span>
-				<?php if ( $percentage ) : ?>
-					<div class="ac-bar" style="width:<?php echo esc_attr( $percentage ); ?>%"></div>
-				<?php endif; ?>
+				<span class="ac-label-left"><?php
+                    echo esc_html($args['label_left']); ?></span>
+				<span class="ac-label-right"><?php
+                    echo esc_html($args['label_right']); ?></span>
+                <?php
+                if ($percentage) : ?>
+					<div class="ac-bar" style="width:<?php
+                    echo esc_attr($percentage); ?>%"></div>
+                <?php
+                endif; ?>
 			</div>
 		</div>
-		<?php
+        <?php
 
-		return ob_get_clean();
-	}
+        return ob_get_clean();
+    }
 
-	public function more( $array, $number = 10, $glue = ', ' ) {
-		if ( ! $number ) {
-			return implode( $glue, $array );
-		}
+    public function more($array, $number = 10, $glue = ', ')
+    {
+        if ( ! $number) {
+            return implode($glue, $array);
+        }
 
-		$first_set = array_slice( $array, 0, $number );
-		$last_set = array_slice( $array, $number );
+        $first_set = array_slice($array, 0, $number);
+        $last_set = array_slice($array, $number);
 
-		ob_start();
+        ob_start();
 
-		if ( $first_set ) {
-			$first = sprintf( '<span class="ac-show-more__part -first">%s</span>', implode( $glue, $first_set ) );
-			$more = $last_set ? sprintf( '<span class="ac-show-more__part -more">%s%s</span>', $glue, implode( $glue, $last_set ) ) : '';
-			$content = sprintf( '<span class="ac-show-more__content">%s%s</span>', $first, $more );
-			$toggler = $last_set ? sprintf( '<span class="ac-show-more__divider">|</span><a class="ac-show-more__toggle" data-show-more-toggle data-more="%1$s" data-less="%2$s">%1$s</a>', sprintf( __( '%s more', 'codepress-admin-columns' ), count( $last_set ) ), strtolower( __( 'Hide', 'codepress-admin-columns' ) ) ) : '';
+        if ($first_set) {
+            $first = sprintf('<span class="ac-show-more__part -first">%s</span>', implode($glue, $first_set));
+            $more = $last_set ? sprintf(
+                '<span class="ac-show-more__part -more">%s%s</span>',
+                $glue,
+                implode($glue, $last_set)
+            ) : '';
+            $content = sprintf('<span class="ac-show-more__content">%s%s</span>', $first, $more);
+            $toggler = $last_set ? sprintf(
+                '<span class="ac-show-more__divider">|</span><a class="ac-show-more__toggle" data-show-more-toggle data-more="%1$s" data-less="%2$s">%1$s</a>',
+                sprintf(__('%s more', 'codepress-admin-columns'), count($last_set)),
+                strtolower(__('Hide', 'codepress-admin-columns'))
+            ) : '';
 
-			echo sprintf( '<span class="ac-show-more">%s</span>', $content . $toggler );
-		}
+            echo sprintf('<span class="ac-show-more">%s</span>', $content . $toggler);
+        }
 
-		return ob_get_clean();
-	}
+        return ob_get_clean();
+    }
 
-	/**
-	 * Return round HTML span
-	 *
-	 * @param $string
-	 *
-	 * @return string
-	 */
-	public function rounded( $string ) {
-		return '<span class="ac-rounded">' . $string . '</span>';
-	}
+    /**
+     * Return round HTML span
+     *
+     * @param $string
+     *
+     * @return string
+     */
+    public function rounded($string)
+    {
+        return '<span class="ac-rounded">' . $string . '</span>';
+    }
 
-	/**
-	 * Returns star rating based on X start from $max count. Does support decimals.
-	 *
-	 * @param int $count
-	 * @param int $max
-	 *
-	 * @return string
-	 */
-	public function stars( $count, $max = 0 ) {
-		$stars = [
-			'filled' => floor( $count ),
-			'half'   => floor( round( ( $count * 2 ) ) - ( floor( $count ) * 2 ) ) ? 1 : 0,
-			'empty'  => 0,
-		];
+    /**
+     * Returns star rating based on X start from $max count. Does support decimals.
+     *
+     * @param int $count
+     * @param int $max
+     *
+     * @return string
+     */
+    public function stars($count, $max = 0)
+    {
+        $stars = [
+            'filled' => floor($count),
+            'half'   => floor(round(($count * 2)) - (floor($count) * 2)) ? 1 : 0,
+            'empty'  => 0,
+        ];
 
-		$max = absint( $max );
+        $max = absint($max);
 
-		if ( $max > 0 ) {
-			$star_count = $stars['filled'] + $stars['half'];
+        if ($max > 0) {
+            $star_count = $stars['filled'] + $stars['half'];
 
-			$stars['empty'] = $max - $star_count;
+            $stars['empty'] = $max - $star_count;
 
-			if ( $star_count > $max ) {
-				$stars['filled'] = $max;
-				$stars['half'] = 0;
-			}
-		}
+            if ($star_count > $max) {
+                $stars['filled'] = $max;
+                $stars['half'] = 0;
+            }
+        }
 
-		$icons = [];
+        $icons = [];
 
-		foreach ( $stars as $type => $_count ) {
-			for ( $i = 1; $i <= $_count; $i++ ) {
-				$icons[] = ac_helper()->icon->dashicon( [ 'icon' => 'star-' . $type, 'class' => 'ac-value-star' ] );
-			}
-		}
+        foreach ($stars as $type => $_count) {
+            for ($i = 1; $i <= $_count; $i++) {
+                $icons[] = ac_helper()->icon->dashicon(['icon' => 'star-' . $type, 'class' => 'ac-value-star']);
+            }
+        }
 
-		ob_start();
-		?>
+        ob_start();
+        ?>
 		<span class="ac-value-stars">
-			<?php echo implode( ' ', $icons ); ?>
+			<?php
+            echo implode(' ', $icons); ?>
 		</span>
-		<?php
-		return ob_get_clean();
-	}
+        <?php
+        return ob_get_clean();
+    }
 
-	/**
-	 * @param string $value HTML
-	 * @param bool   $removed
-	 *
-	 * @return string
-	 */
-	public function images( $value, $removed = false ) {
-		if ( ! $value ) {
-			return false;
-		}
+    /**
+     * @param string $value HTML
+     * @param bool   $removed
+     *
+     * @return string
+     */
+    public function images($value, $removed = false)
+    {
+        if ( ! $value) {
+            return false;
+        }
 
-		if ( $removed ) {
-			$value .= ac_helper()->html->rounded( '+' . $removed );
-		}
+        if ($removed) {
+            $value .= ac_helper()->html->rounded('+' . $removed);
+        }
 
-		return '<div class="ac-image-container">' . $value . '</div>';
-	}
+        return '<div class="ac-image-container">' . $value . '</div>';
+    }
 
 }

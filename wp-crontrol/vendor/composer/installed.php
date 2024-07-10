@@ -1,22 +1,22 @@
 <?php return array(
     'root' => array(
+        'name' => 'johnbillion/wp-crontrol',
         'pretty_version' => 'dev-release',
         'version' => 'dev-release',
+        'reference' => '39aaf91c685c7cf2c8e05c0cc857f5a7ad777040',
         'type' => 'wordpress-plugin',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
-        'reference' => 'a72a4276cb0a7bbba2b6b2c3e235e27a719d8b15',
-        'name' => 'johnbillion/wp-crontrol',
         'dev' => false,
     ),
     'versions' => array(
         'johnbillion/wp-crontrol' => array(
             'pretty_version' => 'dev-release',
             'version' => 'dev-release',
+            'reference' => '39aaf91c685c7cf2c8e05c0cc857f5a7ad777040',
             'type' => 'wordpress-plugin',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
-            'reference' => 'a72a4276cb0a7bbba2b6b2c3e235e27a719d8b15',
             'dev_requirement' => false,
         ),
     ),

@@ -2,11 +2,14 @@
 
 namespace ACP\Sorting;
 
-interface Sortable {
+use ACP\Sorting\Model\QueryBindings;
 
-	/**
-	 * @return AbstractModel
-	 */
-	public function sorting();
+interface Sortable
+{
+
+    /**
+     * @return QueryBindings|null
+     */
+    public function sorting();
 
 }

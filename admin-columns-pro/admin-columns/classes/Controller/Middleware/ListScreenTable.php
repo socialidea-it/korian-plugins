@@ -1,92 +1,142 @@
 <?php
 
+declare(strict_types=1);
+
 namespace AC\Controller\Middleware;
 
-use AC\ListScreenRepository\Filter;
+use AC\ListScreen;
+use AC\ListScreenFactory;
 use AC\ListScreenRepository\Sort;
 use AC\ListScreenRepository\Storage;
 use AC\Middleware;
-use AC\PermissionChecker;
 use AC\Request;
-use AC\Screen;
 use AC\Table;
 use AC\Type\ListScreenId;
+use Exception;
 use WP_Screen;
+use WP_User;
 
-class ListScreenTable implements Middleware {
+class ListScreenTable implements Middleware
+{
 
-	const PARAM_LIST_ID = 'list_id';
-	const PARAM_LIST_KEY = 'list_key';
+    private $storage;
 
-	/**
-	 * @var Storage
-	 */
-	private $storage;
+    private $list_screen_factory;
 
-	/**
-	 * @var WP_Screen
-	 */
-	private $wp_screen;
+    private $wp_screen;
 
-	/**
-	 * @var Table\LayoutPreference
-	 */
-	private $preference;
+    private $preference;
 
-	public function __construct( Storage $storage, WP_Screen $wp_screen, Table\LayoutPreference $preference ) {
-		$this->storage = $storage;
-		$this->wp_screen = $wp_screen;
-		$this->preference = $preference;
-	}
+    public function __construct(
+        Storage $storage,
+        ListScreenFactory $list_screen_factory,
+        WP_Screen $wp_screen,
+        Table\LayoutPreference $preference
+    ) {
+        $this->storage = $storage;
+        $this->list_screen_factory = $list_screen_factory;
+        $this->wp_screen = $wp_screen;
+        $this->preference = $preference;
+    }
 
-	/**
-	 * @return string|null
-	 */
-	private function get_list_key_from_screen() {
-		return ( new Screen() )->set_screen( $this->wp_screen )->get_list_screen();
-	}
+    private function get_first_list_screen(WP_User $user): ?ListScreen
+    {
+        $list_key = $this->get_list_key();
 
-	/**
-	 * Set the list_key and layout
-	 *
-	 * @param Request $request
-	 */
-	public function handle( Request $request ) {
-		$list_key = $request->get( self::PARAM_LIST_KEY );
+        if ( ! $list_key) {
+            return null;
+        }
 
-		if ( ! $list_key ) {
-			$list_key = $this->get_list_key_from_screen();
-		}
+        $list_screens = $this->storage->find_all_by_assigned_user(
+            $list_key,
+            $user,
+            new Sort\UserOrder($user, $list_key)
+        );
 
-		if ( ! $list_key ) {
-			return;
-		}
+        if ($list_screens->valid()) {
+            return $list_screens->current();
+        }
 
-		$list_id = $request->get( 'layout' );
+        return $this->list_screen_factory->can_create($list_key)
+            ? $this->list_screen_factory->create($list_key)
+            : null;
+    }
 
-		if ( ! ListScreenId::is_valid_id( $list_id ) ) {
-			$list_id = $this->preference->get( $list_key );
-		}
+    private function get_preference_list_screen(WP_User $user): ?ListScreen
+    {
+        $list_key = $this->get_list_key();
 
-		if ( ! ListScreenId::is_valid_id( $list_id ) || ! $this->storage->exists( new ListScreenId( $list_id ) ) ) {
+        if ( ! $list_key) {
+            return null;
+        }
 
-			$list_screens = $this->storage->find_all( [
-				Storage::KEY        => $list_key,
-				Storage::ARG_SORT   => new Sort\ManualOrder(),
-				Storage::ARG_FILTER => [
-					new Filter\Permission( new PermissionChecker() ),
-				],
-			] );
+        try {
+            $list_id = new ListScreenId((string)$this->preference->get($list_key));
+        } catch (Exception $e) {
+            return null;
+        }
 
-			$list_id = $list_screens->count() > 0
-				? $list_screens->get_first()->get_id()->get_id()
-				: null;
-		}
+        $list_screen = $this->storage->find($list_id);
 
-		$request->get_parameters()->merge( [
-			self::PARAM_LIST_KEY => $list_key,
-			self::PARAM_LIST_ID  => $list_id,
-		] );
-	}
+        if ( ! $list_screen ||
+             ! $list_screen->is_user_assigned($user) ||
+             $list_screen->get_key() !== $this->get_list_key()
+        ) {
+            return null;
+        }
+
+        return $list_screen;
+    }
+
+    private function get_requested_list_screen(Request $request, WP_User $user): ?ListScreen
+    {
+        try {
+            $list_id = new ListScreenId((string)$request->get('layout'));
+        } catch (Exception $e) {
+            return null;
+        }
+
+        $list_screen = $this->storage->find($list_id);
+
+        if ( ! $list_screen ||
+             ! $list_screen->is_user_allowed($user) ||
+             $list_screen->get_key() !== $this->get_list_key()
+        ) {
+            return null;
+        }
+
+        return $list_screen;
+    }
+
+    private function get_list_key(): ?string
+    {
+        return $this->list_screen_factory->can_create_from_wp_screen($this->wp_screen)
+            ? $this->list_screen_factory->create_from_wp_screen($this->wp_screen)->get_key()
+            : null;
+    }
+
+    private function get_list_screen(Request $request): ?ListScreen
+    {
+        $user = wp_get_current_user();
+
+        if ( ! $user) {
+            return null;
+        }
+
+        $list_screen = $this->get_requested_list_screen($request, $user);
+
+        if ( ! $list_screen) {
+            $list_screen = $this->get_preference_list_screen($user);
+        }
+
+        return $list_screen ?: $this->get_first_list_screen($user);
+    }
+
+    public function handle(Request $request): void
+    {
+        $request->get_parameters()->merge([
+            'list_screen' => $this->get_list_screen($request),
+        ]);
+    }
 
 }

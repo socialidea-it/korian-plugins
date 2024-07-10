@@ -3,26 +3,24 @@
 namespace ACP\Column\Media;
 
 use AC;
+use ACP\ConditionalFormat;
 use ACP\Export;
-use ACP\Filtering;
 use ACP\Search;
 
-/**
- * @since 4.0
- */
 class MediaParent extends AC\Column\Media\MediaParent
-	implements Filtering\Filterable, Export\Exportable, Search\Searchable {
+    implements Export\Exportable, Search\Searchable, ConditionalFormat\Formattable
+{
 
-	public function filtering() {
-		return new Filtering\Model\Post\PostParent( $this );
-	}
+    use ConditionalFormat\ConditionalFormatTrait;
 
-	public function export() {
-		return new Export\Model\Post\PostParent( $this );
-	}
+    public function export()
+    {
+        return new Export\Model\Post\PostParent();
+    }
 
-	public function search() {
-		return new Search\Comparison\Post\PostParent( 'any' );
-	}
+    public function search()
+    {
+        return new Search\Comparison\Post\PostParent('attachment');
+    }
 
 }

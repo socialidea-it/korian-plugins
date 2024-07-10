@@ -9,37 +9,49 @@ use AC\Admin\PageFactoryInterface;
 use AC\Admin\Section;
 use AC\Asset\Location;
 
-class Settings implements PageFactoryInterface {
+class Settings implements PageFactoryInterface
+{
 
-	/**
-	 * @var Location\Absolute
-	 */
-	protected $location;
+    protected $location;
 
-	/**
-	 * @var MenuFactoryInterface
-	 */
-	protected $menu_factory;
+    protected $menu_factory;
 
-	public function __construct( Location\Absolute $location, MenuFactoryInterface $menu_factory ) {
-		$this->location = $location;
-		$this->menu_factory = $menu_factory;
-	}
+    private $is_acp_active;
 
-	public function create() {
-		$page = new Page\Settings(
-			new AC\Admin\View\Menu( $this->menu_factory->create( 'settings' ) ),
-			$this->location
-		);
+    private $edit_button;
 
-		$page->add_section( new Section\General( [ new Section\Partial\ShowEditButton() ] ) )
-		     ->add_section( new Section\Restore(), 40 );
+    public function __construct(
+        Location\Absolute $location,
+        MenuFactoryInterface $menu_factory,
+        bool $is_acp_active,
+        AC\Settings\General\EditButton $edit_button
+    ) {
+        $this->location = $location;
+        $this->menu_factory = $menu_factory;
+        $this->is_acp_active = $is_acp_active;
+        $this->edit_button = $edit_button;
+    }
 
-		if ( ! ac_is_pro_active() ) {
-			$page->add_section( new Section\ProCta(), 50 );
-		}
+    public function create(): Page\Settings
+    {
+        $page = new Page\Settings(
+            new AC\Admin\View\Menu($this->menu_factory->create('settings')),
+            $this->location
+        );
 
-		return $page;
-	}
+        $page
+            ->add_section(
+                new Section\General([
+                    new Section\Partial\ShowEditButton($this->edit_button),
+                ])
+            )
+            ->add_section(new Section\Restore(), 40);
+
+        if ( ! $this->is_acp_active) {
+            $page->add_section(new Section\ProCta(), 50);
+        }
+
+        return $page;
+    }
 
 }

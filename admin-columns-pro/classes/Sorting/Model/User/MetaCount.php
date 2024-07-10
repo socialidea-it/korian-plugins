@@ -2,61 +2,52 @@
 
 namespace ACP\Sorting\Model\User;
 
-use ACP\Sorting\AbstractModel;
-use WP_User_Query;
+use ACP\Query\Bindings;
+use ACP\Sorting\Model\QueryBindings;
+use ACP\Sorting\Model\SqlOrderByFactory;
+use ACP\Sorting\Type\ComputationType;
+use ACP\Sorting\Type\Order;
 
 /**
  * Sort a user list table on the number of times the meta_key is used by a user.
- * @since 5.2
  */
-class MetaCount extends AbstractModel {
+class MetaCount implements QueryBindings
+{
 
-	/**
-	 * @var string
-	 */
-	protected $meta_key;
+    protected $meta_key;
 
-	public function __construct( $meta_key ) {
-		parent::__construct();
+    public function __construct(string $meta_key)
+    {
+        $this->meta_key = $meta_key;
+    }
 
-		$this->meta_key = $meta_key;
-	}
+    public function create_query_bindings(Order $order): Bindings
+    {
+        global $wpdb;
 
-	public function get_sorting_vars() {
-		add_action( 'pre_user_query', [ $this, 'pre_user_query_callback' ] );
+        $bindings = new Bindings();
+        $alias = $bindings->get_unique_alias('mcount');
 
-		return [];
-	}
+        $bindings->join(
+            $wpdb->prepare(
+                "
+			    LEFT JOIN $wpdb->usermeta AS $alias ON $wpdb->users.ID = $alias.user_id
+				    AND $alias.meta_key = %s
+		        ",
+                $this->meta_key
+            )
+        );
+        $bindings->group_by("$wpdb->users.ID");
+        $bindings->order_by(
+            SqlOrderByFactory::create_with_computation(
+                new ComputationType(ComputationType::COUNT),
+                "$alias.meta_key",
+                (string)$order,
+                true
+            )
+        );
 
-	/**
-	 * @param WP_User_Query $query
-	 */
-	public function pre_user_query_callback( WP_User_Query $query ) {
-		global $wpdb;
-
-		$join_type = $this->show_empty
-			? 'LEFT'
-			: 'INNER';
-
-		$order = $this->get_order();
-
-		$query->query_fields .= ", COUNT( acsort_usermeta.meta_key ) AS acsort_metacount";
-		$query->query_from .= $wpdb->prepare( "
-			{$join_type} JOIN {$wpdb->usermeta} AS acsort_usermeta 
-				ON {$wpdb->users}.ID = acsort_usermeta.user_id
-				AND acsort_usermeta.meta_key = %s
-		", $this->meta_key );
-
-		if ( ! $this->show_empty ) {
-			$query->query_from .= " AND acsort_usermeta.meta_value <> ''";
-		}
-
-		$query->query_orderby = "
-			GROUP BY {$wpdb->users}.ID
-			ORDER BY acsort_metacount $order, {$wpdb->users}.ID $order
-		";
-
-		remove_action( 'pre_user_query', [ $this, __FUNCTION__ ] );
-	}
+        return $bindings;
+    }
 
 }
